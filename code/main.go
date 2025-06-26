@@ -26,13 +26,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
-	defer db.Close()
+	defer databases.Close(db)
 
 	// Enable debug mode for development (optional)
-	db.EnableDebugMode()
+	databases.EnableDebugMode(db)
 
 	// Test connection
-	if err := db.Ping(); err != nil {
+	if err := databases.Ping(db); err != nil {
 		log.Fatalf("Database ping failed: %v", err)
 	}
 	log.Println("Database connection successful!")
@@ -44,7 +44,7 @@ func main() {
 	// log.Println("Database migration completed!")
 
 	// Print connection stats
-	stats := db.GetStats()
+	stats := databases.GetStats(db)
 	log.Printf("Database stats: %+v", stats)
 
 	app := fiber.New()
@@ -61,6 +61,7 @@ func main() {
 	transactionRepository := repositories.NewTransactionRepository(db)
 
 	usecase := usecases.NewUsecase(
+		db,
 		customerRepository,
 		limitRepository,
 		tenorRepository,
@@ -69,10 +70,14 @@ func main() {
 	controller := controllers.NewController(usecase)
 
 	api := app.Group("/api/v1")
-	customersAPI := api.Group("/customers") 
+	customersAPI := api.Group("/customers")
 	{
-		customersAPI.Post("/customers/register", controller.RegisterCustomer)
+		customersAPI.Post("/register", controller.RegisterCustomer)
 		customersAPI.Get("/:customerId/limits/:tenorMonths", controller.GetLimit)
+	}
+	adminAPI := api.Group("/admin")
+	{
+		adminAPI.Post("/:customerId/limits", controller.SetLimits)
 	}
 
 	port := os.Getenv("SERVER_PORT")
@@ -97,7 +102,7 @@ func initWithCustomConfig() {
 	if err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
-	defer db.Close()
+	defer databases.Close(db)
 
 	log.Println("Connected with custom config")
 }
@@ -110,7 +115,7 @@ func initWithManualConfig() {
 	if err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}
-	defer db.Close()
+	defer databases.Close(db)
 
 	log.Println("Connected with manual config!")
 }

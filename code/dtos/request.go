@@ -12,3 +12,12 @@ type CustomerRegister struct {
 	KTPPhoto    *multipart.FileHeader `form:"ktp_photo" validate:"required"`
 	SelfiePhoto *multipart.FileHeader `form:"selfie_photo" validate:"required"`
 }
+
+type LimitItem struct {
+	TenorMonths uint8   `json:"tenor_months" validate:"required,gt=0"`
+	LimitAmount float64 `json:"limit_amount" validate:"required,gte=0"`
+}
+
+type SetLimitsRequest struct {
+	Limits []LimitItem `json:"limits" validate:"required,min=1,dive"`
+}

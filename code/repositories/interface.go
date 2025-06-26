@@ -18,6 +18,7 @@ type TenorRepository interface {
 
 type LimitRepository interface {
 	FindByCustomerIDAndTenorID(ctx context.Context, customerID uint64, tenorID uint) (*models.CustomerLimit, error)
+	UpsertMany(ctx context.Context, limits []models.CustomerLimit) error
 }
 
 type TransactionRepository interface {

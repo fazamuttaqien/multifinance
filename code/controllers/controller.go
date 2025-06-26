@@ -99,3 +99,46 @@ func (cc *Controller) GetLimit(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(limitDetails)
 }
+
+func (cc *Controller) SetLimits(c *fiber.Ctx) error {
+	// 1. Parse Customer ID dari URL
+	customerID, err := strconv.ParseUint(c.Params("customerId"), 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid customer ID format",
+		})
+	}
+
+	// 2. Parse request body (JSON)
+	var req dtos.SetLimitsRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Cannot parse request body",
+		})
+	}
+
+	// 3. Validasi struct request
+	if err := cc.validate.Struct(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Validation failed",
+			"defails": err.Error(),
+		})
+	}
+
+	// 4. Panggil service
+	if err := cc.usecase.SetLimits(c.Context(), customerID, req); err != nil {
+		switch {
+		case errors.Is(err, helper.ErrCustomerNotFound), errors.Is(err, helper.ErrTenorNotFound):
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
+		case errors.Is(err, helper.ErrInvalidLimitAmount):
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		default:
+			log.Printf("Internal server error on SetLimits: %v", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "An internal server error occurred"})
+		}
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message": "Customer limits updated successfully",
+	})
+}

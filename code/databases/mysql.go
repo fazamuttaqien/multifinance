@@ -24,11 +24,6 @@ type DatabaseConfig struct {
 	Loc          string
 }
 
-type Database struct {
-	Gorm   *gorm.DB
-	Config *DatabaseConfig
-}
-
 // LoadConfigFromEnv Loads database configuration from environment variables
 func LoadConfigFromEnv() *DatabaseConfig {
 	port, err := strconv.Atoi(helper.GetEnv("DB_PORT", "3306"))
@@ -76,7 +71,7 @@ func (config *DatabaseConfig) BuildDSN() string {
 }
 
 // Connect establishes database connection
-func Connect(config *DatabaseConfig) (*Database, error) {
+func Connect(config *DatabaseConfig) (*gorm.DB, error) {
 	dsn := config.BuildDSN()
 
 	// GORM configuration
@@ -112,14 +107,11 @@ func Connect(config *DatabaseConfig) (*Database, error) {
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	return &Database{
-		Gorm:   db,
-		Config: config,
-	}, nil
+	return db, nil
 }
 
 // ConnectWithRetry connects to database with retry mechanism
-func ConnectWithRetry(config *DatabaseConfig, maxRetries int, retryDelay time.Duration) (db *Database, err error) {
+func ConnectWithRetry(config *DatabaseConfig, maxRetries int, retryDelay time.Duration) (db *gorm.DB, err error) {
 	for i := range maxRetries {
 		db, err := Connect(config)
 		if err == nil {
@@ -138,8 +130,8 @@ func ConnectWithRetry(config *DatabaseConfig, maxRetries int, retryDelay time.Du
 }
 
 // Close closes the database connection
-func (d *Database) Close() error {
-	sqlDB, err := d.Gorm.DB()
+func Close(db *gorm.DB) error {
+	sqlDB, err := db.DB()
 	if err != nil {
 		return fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}
@@ -148,8 +140,8 @@ func (d *Database) Close() error {
 }
 
 // Ping checks if database connection is alive
-func (d *Database) Ping() error {
-	sqlDB, err := d.Gorm.DB()
+func Ping(db *gorm.DB) error {
+	sqlDB, err := db.DB()
 	if err != nil {
 		return fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}
@@ -158,8 +150,8 @@ func (d *Database) Ping() error {
 }
 
 // GetStats returns database connection statistics
-func (d *Database) GetStats() map[string]any {
-	sqlDB, err := d.Gorm.DB()
+func GetStats(db *gorm.DB) map[string]any {
+	sqlDB, err := db.DB()
 	if err != nil {
 		return map[string]any{
 			"error": err.Error(),
@@ -178,18 +170,18 @@ func (d *Database) GetStats() map[string]any {
 // Usage functions
 
 // InitializeDatabase initializes database connection with environment config
-func InitializeDatabase() (*Database, error) {
+func InitializeDatabase() (*gorm.DB, error) {
 	config := LoadConfigFromEnv()
 	return ConnectWithRetry(config, 5, time.Second*2)
 }
 
 // InitializeDatabaseWithConfig initializes database with custom config
-func InitializeDatabaseWithConfig(host, username, password, dbname string, port int) (*Database, error) {
+func InitializeDatabaseWithConfig(host, username, password, dbname string, port int) (*gorm.DB, error) {
 	config := CreateConfig(host, username, password, dbname, port)
 	return Connect(config)
 }
 
 // EnableDebugMode enables GORM debug mode for development
-func (d *Database) EnableDebugMode() {
-	d.Gorm = d.Gorm.Debug()
+func EnableDebugMode(db *gorm.DB) *gorm.DB {
+	return db.Debug()
 }

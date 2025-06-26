@@ -14,7 +14,8 @@ import (
 	"gorm.io/gorm"
 )
 
-type customerUsecase struct {
+type usecase struct {
+	db          *gorm.DB
 	customer    repositories.CustomerRepository
 	tenor       repositories.TenorRepository
 	limit       repositories.LimitRepository
@@ -22,8 +23,65 @@ type customerUsecase struct {
 	media       Media
 }
 
+// SetLimits implements Usecases.
+func (cu *usecase) SetLimits(ctx context.Context, customerID uint64, req dtos.SetLimitsRequest) error {
+	// Start transaction
+	tx := cu.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+	defer tx.Rollback()
+
+	// 1. Validasi customer
+	customerTx := repositories.NewCustomerRepository(tx)
+	customer, err := customerTx.FindByID(ctx, customerID)
+	if err != nil {
+		return fmt.Errorf("error finding customer: %w", err)
+	}
+	if customer == nil {
+		return helper.ErrCustomerNotFound
+	}
+
+	limitsToUpsert := make([]models.CustomerLimit, 0, len(req.Limits))
+	tenorTx := repositories.NewTenorRepository(tx)
+
+	// 2. Loop dan validasi setiap item limit dalam request
+	for _, item := range req.Limits {
+		if item.LimitAmount < 0 {
+			return helper.ErrInvalidLimitAmount
+		}
+
+		// Cari tenor ID berdasarkan durasi bulan
+		tenor, err := tenorTx.FindByDuration(ctx, item.TenorMonths)
+		if err != nil {
+			return fmt.Errorf("error finding tenor for %d months: %w", item.TenorMonths, err)
+		}
+		if tenor == nil {
+			return fmt.Errorf("%w: for %d months", helper.ErrTenorNotFound, item.TenorMonths)
+		}
+
+		// Menyiapkan data untuk di upsert
+		limitsToUpsert = append(limitsToUpsert, models.CustomerLimit{
+			CustomerID:  customerID,
+			TenorID:     tenor.ID,
+			LimitAmount: item.LimitAmount,
+		})
+	}
+
+	// 3. Melakukan operasi upsert massal
+	if len(limitsToUpsert) > 0 {
+		limitTx := repositories.NewLimitRepository(tx)
+		if err := limitTx.UpsertMany(ctx, limitsToUpsert); err != nil {
+			return fmt.Errorf("failed to upsert limits: %w", err)
+		}
+	}
+
+	// 4. Jika semua berhasil, commit transaksi
+	return tx.Commit().Error
+}
+
 // CalculateLimit implements Usecases.
-func (cu *customerUsecase) CalculateLimit(ctx context.Context, customerID uint64, tenorMonths uint8) (*dtos.LimitDetailResponse, error) {
+func (cu *usecase) CalculateLimit(ctx context.Context, customerID uint64, tenorMonths uint8) (*dtos.LimitDetailResponse, error) {
 	// 1. Validasi customer
 	customer, err := cu.customer.FindByID(ctx, customerID)
 	if err != nil {
@@ -75,7 +133,7 @@ func (cu *customerUsecase) CalculateLimit(ctx context.Context, customerID uint64
 }
 
 // Register implements CustomerUsecase.
-func (cu *customerUsecase) Register(ctx context.Context, req *dtos.CustomerRegister) (*models.Customer, error) {
+func (cu *usecase) Register(ctx context.Context, req *dtos.CustomerRegister) (*models.Customer, error) {
 	// 1. Cek duplikasi NIK
 	existingCustomer, err := cu.customer.FindByNIK(ctx, req.NIK)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -136,13 +194,15 @@ func (cu *customerUsecase) Register(ctx context.Context, req *dtos.CustomerRegis
 }
 
 func NewUsecase(
+	db *gorm.DB,
 	cr repositories.CustomerRepository,
 	lr repositories.LimitRepository,
 	tr repositories.TenorRepository,
 	ttr repositories.TransactionRepository,
 	media Media,
 ) Usecases {
-	return &customerUsecase{
+	return &usecase{
+		db:          db,
 		customer:    cr,
 		limit:       lr,
 		tenor:       tr,
