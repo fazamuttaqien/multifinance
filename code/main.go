@@ -2,10 +2,16 @@ package main
 
 import (
 	"log"
-	"time"
+	"os"
 
-	"github.com/fazamuttaqien/xyz-multifinance/database"
-	"github.com/fazamuttaqien/xyz-multifinance/models"
+	"github.com/fazamuttaqien/xyz-multifinance/controllers"
+	"github.com/fazamuttaqien/xyz-multifinance/databases"
+	"github.com/fazamuttaqien/xyz-multifinance/helper"
+	"github.com/fazamuttaqien/xyz-multifinance/repositories"
+	"github.com/fazamuttaqien/xyz-multifinance/usecases"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
 )
 
@@ -15,8 +21,8 @@ func main() {
 		log.Println("No .env file found, using system environment variables")
 	}
 
-	// Initialize database connection
-	db, err := database.InitializeDatabase()
+	// Initialize db connection
+	db, err := databases.InitializeDatabase()
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
@@ -41,41 +47,47 @@ func main() {
 	stats := db.GetStats()
 	log.Printf("Database stats: %+v", stats)
 
-	// Example: Create a customer
-	customer := models.Customer{
-		NIK:                "0123456778901234",
-		FullName:           "Jane Doe",
-		LegalName:          "Jane Doe",
-		BirthPlace:         "Jakarta",
-		BirthDate:          time.Now().AddDate(-30, 0, 0), // 30 years ago
-		Salary:             5000000.00,
-		KTPPhotoURL:        "https://example.com/ktp.jpg",
-		SelfiePhotoURL:     "https://example.com/selfie.jpg",
-		VerificationStatus: models.VerificationPending,
+	app := fiber.New()
+	app.Use(logger.New())
+
+	uploader, err := helper.NewCloudinaryUploader()
+	if err != nil {
+		log.Fatalf("Failed to initialize Cloudinary: %v", err)
 	}
 
-	// Insert customer
-	result := db.DB.Create(&customer)
-	if result.Error != nil {
-		log.Printf("Failed to create customer: %v", result.Error)
-	} else {
-		log.Printf("Customer created with ID: %d", customer.ID)
+	customerRepository := repositories.NewCustomerRepository(db)
+	limitRepository := repositories.NewLimitRepository(db)
+	tenorRepository := repositories.NewTenorRepository(db)
+	transactionRepository := repositories.NewTransactionRepository(db)
+
+	usecase := usecases.NewUsecase(
+		customerRepository,
+		limitRepository,
+		tenorRepository,
+		transactionRepository,
+		uploader)
+	controller := controllers.NewController(usecase)
+
+	api := app.Group("/api/v1")
+	customersAPI := api.Group("/customers") 
+	{
+		customersAPI.Post("/customers/register", controller.RegisterCustomer)
+		customersAPI.Get("/:customerId/limits/:tenorMonths", controller.GetLimit)
 	}
 
-	// Example: Find customer by NIK
-	var foundCustomer models.Customer
-	if err := db.DB.Where("nik = ?", "1234567890123456").First(&foundCustomer).Error; err != nil {
-		log.Printf("Customer not found: %v", err)
-	} else {
-		log.Printf("Found customer: %s", foundCustomer.FullName)
+	port := os.Getenv("SERVER_PORT")
+	if port == "" {
+		port = "3000"
 	}
+	log.Printf("Server starting on port %s", port)
+	log.Fatal(app.Listen(":" + port))
 }
 
 // Alternative initialization methods
 
 func initWithCustomConfig() {
 	// Initialize with custom configuration
-	db, err := database.InitializeDatabaseWithConfig(
+	db, err := databases.InitializeDatabaseWithConfig(
 		"localhost",
 		"root",
 		"password",
@@ -92,9 +104,9 @@ func initWithCustomConfig() {
 
 func initWithManualConfig() {
 	// Manual configuration
-	config := database.CreateConfig("localhost", "root", "password", "loan_db", 3306)
+	config := databases.CreateConfig("localhost", "root", "password", "loan_db", 3306)
 
-	db, err := database.Connect(config)
+	db, err := databases.Connect(config)
 	if err != nil {
 		log.Fatalf("Failed to connect: %v", err)
 	}

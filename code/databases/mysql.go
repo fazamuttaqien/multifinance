@@ -1,4 +1,4 @@
-package database
+package databases
 
 import (
 	"fmt"
@@ -25,7 +25,7 @@ type DatabaseConfig struct {
 }
 
 type Database struct {
-	DB     *gorm.DB
+	Gorm   *gorm.DB
 	Config *DatabaseConfig
 }
 
@@ -113,7 +113,7 @@ func Connect(config *DatabaseConfig) (*Database, error) {
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	return &Database{
-		DB:     db,
+		Gorm:   db,
 		Config: config,
 	}, nil
 }
@@ -139,7 +139,7 @@ func ConnectWithRetry(config *DatabaseConfig, maxRetries int, retryDelay time.Du
 
 // Close closes the database connection
 func (d *Database) Close() error {
-	sqlDB, err := d.DB.DB()
+	sqlDB, err := d.Gorm.DB()
 	if err != nil {
 		return fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}
@@ -149,7 +149,7 @@ func (d *Database) Close() error {
 
 // Ping checks if database connection is alive
 func (d *Database) Ping() error {
-	sqlDB, err := d.DB.DB()
+	sqlDB, err := d.Gorm.DB()
 	if err != nil {
 		return fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}
@@ -159,7 +159,7 @@ func (d *Database) Ping() error {
 
 // GetStats returns database connection statistics
 func (d *Database) GetStats() map[string]any {
-	sqlDB, err := d.DB.DB()
+	sqlDB, err := d.Gorm.DB()
 	if err != nil {
 		return map[string]any{
 			"error": err.Error(),
@@ -191,5 +191,5 @@ func InitializeDatabaseWithConfig(host, username, password, dbname string, port 
 
 // EnableDebugMode enables GORM debug mode for development
 func (d *Database) EnableDebugMode() {
-	d.DB = d.DB.Debug()
+	d.Gorm = d.Gorm.Debug()
 }
