@@ -108,7 +108,11 @@ CREATE TABLE IF NOT EXISTS transactions (
 
 -- Insert initial data for tenors
 INSERT INTO tenors (duration_months, description) VALUES 
+(1, '1 Months'),
+(2, '2 Months'),
+(3, '3 Months'),
 (6, '6 Months'),
+(9, '9 Months'),
 (12, '1 Year'),
 (18, '18 Months'),
 (24, '2 Years'),
@@ -116,139 +120,6 @@ INSERT INTO tenors (duration_months, description) VALUES
 (48, '4 Years'),
 (60, '5 Years')
 ON DUPLICATE KEY UPDATE description = VALUES(description);
-
--- Insert sample customer data for testing (optional)
-INSERT INTO customers (
-    nik, 
-    full_name, 
-    legal_name, 
-    birth_place, 
-    birth_date, 
-    salary, 
-    ktp_photo_url, 
-    selfie_photo_url, 
-    verification_status
-) VALUES 
-(
-    '1234567890123456', 
-    'John Doe', 
-    'John Doe', 
-    'Jakarta', 
-    '1990-01-15', 
-    5000000.00, 
-    'https://example.com/ktp/john_doe.jpg', 
-    'https://example.com/selfie/john_doe.jpg', 
-    'VERIFIED'
-),
-(
-    '2345678901234567', 
-    'Jane Smith', 
-    'Jane Smith', 
-    'Bandung', 
-    '1985-05-20', 
-    7500000.00, 
-    'https://example.com/ktp/jane_smith.jpg', 
-    'https://example.com/selfie/jane_smith.jpg', 
-    'PENDING'
-),
-(
-    '3456789012345678', 
-    'Bob Wilson', 
-    'Robert Wilson', 
-    'Surabaya', 
-    '1992-12-10', 
-    6000000.00, 
-    'https://example.com/ktp/bob_wilson.jpg', 
-    'https://example.com/selfie/bob_wilson.jpg', 
-    'VERIFIED'
-)
-ON DUPLICATE KEY UPDATE 
-    full_name = VALUES(full_name),
-    legal_name = VALUES(legal_name);
-
--- Insert sample customer limits for testing
-INSERT INTO customer_limits (customer_id, tenor_id, limit_amount)
-SELECT 
-    c.id,
-    t.id,
-    CASE 
-        WHEN t.duration_months = 6 THEN c.salary * 2
-        WHEN t.duration_months = 12 THEN c.salary * 3
-        WHEN t.duration_months = 18 THEN c.salary * 4
-        WHEN t.duration_months = 24 THEN c.salary * 5
-        WHEN t.duration_months = 36 THEN c.salary * 6
-        WHEN t.duration_months = 48 THEN c.salary * 7
-        WHEN t.duration_months = 60 THEN c.salary * 8
-        ELSE c.salary * 2
-    END as limit_amount
-FROM customers c
-CROSS JOIN tenors t
-WHERE c.verification_status = 'VERIFIED'
-ON DUPLICATE KEY UPDATE 
-    limit_amount = VALUES(limit_amount);
-
--- Insert sample transaction for testing
-INSERT INTO transactions (
-    contract_number,
-    customer_id,
-    tenor_id,
-    asset_name,
-    otr_amount,
-    admin_fee,
-    total_interest,
-    total_installment_amount,
-    status
-)
-SELECT 
-    CONCAT('LOAN-', YEAR(CURDATE()), '-', LPAD(c.id, 6, '0'), '-001'),
-    c.id,
-    t.id,
-    'Honda Beat 2023',
-    15000000.00,
-    250000.00,
-    1800000.00,
-    17050000.00,
-    'ACTIVE'
-FROM customers c
-JOIN tenors t ON t.duration_months = 12
-WHERE c.nik = '1234567890123456'
-LIMIT 1
-ON DUPLICATE KEY UPDATE 
-    asset_name = VALUES(asset_name);
-
--- Create additional useful views
-CREATE OR REPLACE VIEW customer_summary AS
-SELECT 
-    c.id,
-    c.nik,
-    c.full_name,
-    c.verification_status,
-    c.salary,
-    COUNT(t.id) as total_transactions,
-    COALESCE(SUM(CASE WHEN t.status = 'ACTIVE' THEN t.total_installment_amount ELSE 0 END), 0) as active_loan_amount,
-    COALESCE(MAX(cl.limit_amount), 0) as max_limit
-FROM customers c
-LEFT JOIN transactions t ON c.id = t.customer_id
-LEFT JOIN customer_limits cl ON c.id = cl.customer_id
-GROUP BY c.id, c.nik, c.full_name, c.verification_status, c.salary;
-
--- Create view for transaction summary
-CREATE OR REPLACE VIEW transaction_summary AS
-SELECT 
-    t.id,
-    t.contract_number,
-    c.full_name as customer_name,
-    c.nik as customer_nik,
-    t.asset_name,
-    tn.duration_months,
-    tn.description as tenor_description,
-    t.otr_amount,
-    t.total_installment_amount,
-    t.status,
-    t.transaction_date
-FROM transactions t
-JOIN customers c ON t.customer_id = c.id
-JOIN tenors tn ON t.tenor_id = tn.id;
 
 -- Show table creation results
 SELECT 'Database initialization completed successfully!' as message;

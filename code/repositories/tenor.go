@@ -12,6 +12,13 @@ type tenorRepository struct {
 	db *gorm.DB
 }
 
+// FindAll implements TenorRepository.
+func (t *tenorRepository) FindAll(ctx context.Context) ([]models.Tenor, error) {
+	var tenors []models.Tenor
+	err := t.db.WithContext(ctx).Find(&tenors).Error
+	return tenors, err
+}
+
 // FindByDuration implements TenorRepository.
 func (t *tenorRepository) FindByDuration(ctx context.Context, durationMonths uint8) (*models.Tenor, error) {
 	var tenor models.Tenor

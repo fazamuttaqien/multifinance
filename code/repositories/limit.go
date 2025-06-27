@@ -13,6 +13,13 @@ type limitRepository struct {
 	db *gorm.DB
 }
 
+// FindAllByCustomerID implements LimitRepository.
+func (l *limitRepository) FindAllByCustomerID(ctx context.Context, customerID uint64) ([]models.CustomerLimit, error) {
+	var limits []models.CustomerLimit
+	err := l.db.WithContext(ctx).Where("customer_id = ?", customerID).Find(&limits).Error
+	return limits, err
+}
+
 // UpsertMany implements LimitRepository.
 func (l *limitRepository) UpsertMany(ctx context.Context, limits []models.CustomerLimit) error {
 	if len(limits) == 0 {

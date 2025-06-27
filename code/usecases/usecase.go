@@ -23,6 +23,100 @@ type usecase struct {
 	media       Media
 }
 
+// CreateTransaction implements Usecases.
+func (cu *usecase) CreateTransaction(ctx context.Context, req dtos.CreateTransactionRequest) (*models.Transaction, error) {
+	// Start Transaction
+	tx := cu.db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", tx.Error)
+	}
+	defer tx.Rollback()
+
+	// 1. Mendapatkan Customer berdasarkan NIK dan KUNCI barisnya untuk mencegah race condition
+	customerTx := repositories.NewCustomerRepository(tx)
+	// Menambahkan metode FindByNIKWithLock(ctx, req.CustomerNIK)
+	lockedCustomer, err := customerTx.FindByNIKWithLock(ctx, req.NIK)
+	if err != nil {
+		return nil, fmt.Errorf("error finding customer: %w", err)
+	}
+	if lockedCustomer == nil {
+		return nil, helper.ErrCustomerNotFound
+	}
+
+	// Memastikan costumer sudah terverifikasi
+	if lockedCustomer.VerificationStatus != models.VerificationVerified {
+		return nil, fmt.Errorf("customer with NIK %s is not verified", req.NIK)
+	}
+
+	// 2. Mendapatkan Tenor
+	tenorTx := repositories.NewTenorRepository(tx)
+	tenor, err := tenorTx.FindByDuration(ctx, req.TenorMonths)
+	if err != nil {
+		return nil, err
+	}
+	if tenor == nil {
+		return nil, helper.ErrTenorNotFound
+	}
+
+	// 3. Validasi ulang limit di dalam transanksi yang terkunci
+	limitTx := repositories.NewLimitRepository(tx)
+	limit, err := limitTx.FindByCustomerIDAndTenorID(ctx, lockedCustomer.ID, tenor.ID)
+	if err != nil {
+		return nil, err
+	}
+	if limit == nil {
+		return nil, helper.ErrLimitNotSet
+	}
+	totalLimit := limit.LimitAmount
+
+	transactionTx := repositories.NewTransactionRepository(tx)
+	usedAmount, err := transactionTx.SumActivePrincipalByCustomerIDAndTenorID(ctx, lockedCustomer.ID, tenor.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	remainingLimit := totalLimit - usedAmount
+	transactionPrincipal := req.OTRAmount + req.AdminFee
+
+	if remainingLimit < transactionPrincipal {
+		return nil, helper.ErrInsufficientLimit
+	}
+
+	// 4. Hitung komponen finansial lainnya (business logic)
+	// Aturan bunga sederhana: 2% dari OTR per bulan tenor
+	totalInterest := req.OTRAmount * 0.02 * float64(req.TenorMonths)
+	totalInstallment := transactionPrincipal + totalInterest
+
+	// 5. Generate Nomor Kontrak
+	contractNumber := fmt.Sprintf("KTR-%s-%d", time.Now().Format("20060102"), time.Now().UnixNano()%100000)
+
+	// 6. Buat entitas Transaction baru
+	newTransaction := models.Transaction{
+		ContractNumber:         contractNumber,
+		CustomerID:             lockedCustomer.ID,
+		TenorID:                tenor.ID,
+		AssetName:              req.AssetName,
+		OTRAmount:              req.OTRAmount,
+		AdminFee:               req.AdminFee,
+		TotalInterest:          totalInterest,
+		TotalInstallmentAmount: totalInstallment,
+		Status:                 models.TransactionActive, // Langsung aktif
+	}
+
+	// 7. Simpan transaksi baru ke DB
+	repoTx := repositories.NewTransactionRepository(tx)
+	if err := repoTx.CreateTransaction(ctx, newTransaction); err != nil {
+		return nil, fmt.Errorf("failed to create transaction record: %w", err)
+	}
+
+	// 8. Jika semua berhasil, commit transaksi
+	if err := tx.Commit().Error; err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return &newTransaction, nil
+}
+
 // SetLimits implements Usecases.
 func (cu *usecase) SetLimits(ctx context.Context, customerID uint64, req dtos.SetLimitsRequest) error {
 	// Start transaction
@@ -109,7 +203,7 @@ func (cu *usecase) CalculateLimit(ctx context.Context, customerID uint64, tenorM
 		// Jika limit tidak di-set, anggap 0. Ini keputusan bisnis.
 		return nil, helper.ErrLimitNotSet
 	}
-	totalLimit := limit.LimitAmount
+	limitAmount := limit.LimitAmount
 
 	// 4. Hitung jumlah pemakaian (used amount) dari transaksi aktif
 	usedAmount, err := cu.transaction.SumActivePrincipalByCustomerIDAndTenorID(ctx, customerID, tenor.ID)
@@ -118,13 +212,13 @@ func (cu *usecase) CalculateLimit(ctx context.Context, customerID uint64, tenorM
 	}
 
 	// 5. Kalkulasi sisa limit
-	remainigLimit := totalLimit - usedAmount
+	remainigLimit := limitAmount - usedAmount
 	if remainigLimit < 0 {
 		remainigLimit = 0
 	}
 
 	response := &dtos.LimitDetailResponse{
-		TotalLimit:     totalLimit,
+		LimitAmount:    limitAmount,
 		UsedAmount:     usedAmount,
 		RemainingLimit: remainigLimit,
 	}

@@ -57,4 +57,4 @@ Setiap transaksi konsumen, baik di ecommerce, web PT XYZ, maupun dealer yang bek
 - Mampu menyediakan proactive action dan keterbukaan terhadap error, bug, performance, dan penggunaan
 - Mampu menyediakan deployment yang cepat dan akurat terhadap suatu feature / bug
 - Mampu menyediakan keamanan terhadap aplikasi yang berbasis pada standar OWASP
-- Mampu menyediakan data yang ACID (Atomicity, Consistency, Isolation,
+- Mampu menyediakan data yang ACID (Atomicity, Consistency, Isolation, Durability)

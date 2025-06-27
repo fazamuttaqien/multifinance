@@ -21,3 +21,28 @@ type LimitItem struct {
 type SetLimitsRequest struct {
 	Limits []LimitItem `json:"limits" validate:"required,min=1,dive"`
 }
+
+type CreateTransactionRequest struct {
+	NIK         string  `json:"nik" validate:"required,len=16,numeric"`
+	TenorMonths uint8   `json:"tenor_months" validate:"required,gt=0"`
+	AssetName   string  `json:"asset_name" validate:"required"`
+	OTRAmount   float64 `json:"otr_amount" validate:"required,gt=0"`
+	AdminFee    float64 `json:"admin_fee" validate:"required,gte=0"`
+}
+
+type UpdateProfileRequest struct {
+	FullName string  `json:"full_name" validate:"required"`
+	Salary   float64 `json:"salary" validate:"required,gt=0"`
+}
+
+type PaginationParams struct {
+	Status string `query:"status"`
+	Page   int    `query:"page"`
+	Limit  int    `query:"limit"`
+}
+
+type CheckLimitRequest struct {
+	NIK               string  `json:"nik" validate:"required,len=16,numeric"`
+	TenorMonths       uint8   `json:"tenor_months" validate:"required,gt=0"`
+	TransactionAmount float64 `json:"transaction_amount" validate:"required,gt=0"`
+}

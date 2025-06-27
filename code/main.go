@@ -1,14 +1,18 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"os"
+	"time"
 
 	"github.com/fazamuttaqien/xyz-multifinance/controllers"
 	"github.com/fazamuttaqien/xyz-multifinance/databases"
 	"github.com/fazamuttaqien/xyz-multifinance/helper"
+	"github.com/fazamuttaqien/xyz-multifinance/models"
 	"github.com/fazamuttaqien/xyz-multifinance/repositories"
 	"github.com/fazamuttaqien/xyz-multifinance/usecases"
+	"gorm.io/gorm"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -27,6 +31,8 @@ func main() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer databases.Close(db)
+
+	seedAdmin(db)
 
 	// Enable debug mode for development (optional)
 	databases.EnableDebugMode(db)
@@ -70,14 +76,21 @@ func main() {
 	controller := controllers.NewController(usecase)
 
 	api := app.Group("/api/v1")
+
 	customersAPI := api.Group("/customers")
 	{
 		customersAPI.Post("/register", controller.RegisterCustomer)
-		customersAPI.Get("/:customerId/limits/:tenorMonths", controller.GetLimit)
+		// customersAPI.Get("/:customerId/limits/:tenorMonths", controller.GetLimit)
 	}
+
 	adminAPI := api.Group("/admin")
 	{
 		adminAPI.Post("/:customerId/limits", controller.SetLimits)
+	}
+
+	partnersAPI := api.Group("/partners")
+	{
+		partnersAPI.Post("/transactions", controller.CreateTransaction)
 	}
 
 	port := os.Getenv("SERVER_PORT")
@@ -88,34 +101,41 @@ func main() {
 	log.Fatal(app.Listen(":" + port))
 }
 
-// Alternative initialization methods
+const (
+	AdminID  uint64 = 1
+	AdminNIK string = "1010010110100101"
+)
 
-func initWithCustomConfig() {
-	// Initialize with custom configuration
-	db, err := databases.InitializeDatabaseWithConfig(
-		"localhost",
-		"root",
-		"password",
-		"loan_db",
-		3306,
-	)
-	if err != nil {
-		log.Fatalf("Failed to connect: %v", err)
+func seedAdmin(db *gorm.DB) {
+	log.Println("Checking for admin user...")
+
+	var adminUser models.Customer
+	err := db.First(&adminUser, AdminID).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		log.Println("Admin user not found, creating one...")
+
+		// Buat data admin baru
+		newAdmin := models.Customer{
+			ID:                 AdminID,
+			NIK:                AdminNIK,
+			FullName:           "Administrator",
+			LegalName:          "System Administrator",
+			BirthPlace:         "System",
+			BirthDate:          time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
+			Salary:             99999999,
+			KTPPhotoURL:        "https://via.placeholder.com/150",
+			SelfiePhotoURL:     "https://via.placeholder.com/150",
+			VerificationStatus: models.VerificationVerified,
+		}
+
+		if err := db.Create(&newAdmin).Error; err != nil {
+			log.Fatalf("Failed to seed admin user: %v", err)
+		}
+		log.Println("Admin user created successfully.")
+	} else if err != nil {
+		log.Fatalf("Error checking for admin user: %v", err)
+	} else {
+		log.Println("Admin user already exists.")
 	}
-	defer databases.Close(db)
-
-	log.Println("Connected with custom config")
-}
-
-func initWithManualConfig() {
-	// Manual configuration
-	config := databases.CreateConfig("localhost", "root", "password", "loan_db", 3306)
-
-	db, err := databases.Connect(config)
-	if err != nil {
-		log.Fatalf("Failed to connect: %v", err)
-	}
-	defer databases.Close(db)
-
-	log.Println("Connected with manual config!")
 }

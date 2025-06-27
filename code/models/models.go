@@ -1,9 +1,6 @@
 package models
 
-import (
-	"gorm.io/gorm"
-	"time"
-)
+import "time"
 
 // Customer represents the customers table
 type Customer struct {
@@ -52,8 +49,8 @@ type CustomerLimit struct {
 	LimitAmount float64 `gorm:"type:decimal(15,2);not null" json:"limit_amount"`
 
 	// Relationships
-	Customer Customer `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"customer,omitempty"`
-	Tenor    Tenor    `gorm:"foreignKey:TenorID;constraint:OnDelete:RESTRICT" json:"tenor,omitempty"`
+	Customer Customer `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"customer"`
+	Tenor    Tenor    `gorm:"foreignKey:TenorID;constraint:OnDelete:RESTRICT" json:"tenor"`
 }
 
 // Transaction represents the transactions table
@@ -71,8 +68,8 @@ type Transaction struct {
 	TransactionDate        time.Time         `gorm:"autoCreateTime" json:"transaction_date"`
 
 	// Relationships
-	Customer Customer `gorm:"foreignKey:CustomerID;constraint:OnDelete:RESTRICT" json:"customer,omitempty"`
-	Tenor    Tenor    `gorm:"foreignKey:TenorID;constraint:OnDelete:RESTRICT" json:"tenor,omitempty"`
+	Customer Customer `gorm:"foreignKey:CustomerID;constraint:OnDelete:RESTRICT" json:"customer"`
+	Tenor    Tenor    `gorm:"foreignKey:TenorID;constraint:OnDelete:RESTRICT" json:"tenor"`
 }
 
 // TransactionStatus enum for transaction status
@@ -104,11 +101,11 @@ func (Transaction) TableName() string {
 }
 
 // Database migration function
-func MigrateDB(db *gorm.DB) error {
-	return db.AutoMigrate(
-		&Customer{},
-		&Tenor{},
-		&CustomerLimit{},
-		&Transaction{},
-	)
-}
+// func MigrateDB(db *gorm.DB) error {
+// 	return db.AutoMigrate(
+// 		&Customer{},
+// 		&Tenor{},
+// 		&CustomerLimit{},
+// 		&Transaction{},
+// 	)
+// }
