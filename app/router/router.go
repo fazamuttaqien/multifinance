@@ -19,22 +19,24 @@ func NewRouter(presenter presenter.Presenter, db *gorm.DB) *fiber.App {
 
 	api := app.Group("/api/v1")
 
-	customersAPI := api.Group("/profile", customerAuth)
+	api.Post("/register", presenter.ProfilePresenter.Register)
+
+	customersAPI := api.Group("/customers", customerAuth)
 	{
-		customersAPI.Post("/register", presenter.ProfilePresenter.Register)
 		customersAPI.Post("/transactions", presenter.ProfilePresenter.CreateTransaction)
-		customersAPI.Get("/", presenter.ProfilePresenter.GetMyProfile)
-		customersAPI.Put("/", presenter.ProfilePresenter.UpdateMyProfile)
+		customersAPI.Get("/profile", presenter.ProfilePresenter.GetMyProfile)
+		customersAPI.Put("/profile", presenter.ProfilePresenter.UpdateMyProfile)
 		customersAPI.Get("/limits", presenter.ProfilePresenter.GetMyLimits)
 		customersAPI.Get("/transactions", presenter.ProfilePresenter.GetMyTransactions)
 	}
 
 	adminAPI := api.Group("/admin", adminAuth)
+	adminCustomersAPI := adminAPI.Group("/customers")
 	{
-		adminAPI.Post("/:customerId/limits", presenter.AdminPresenter.SetLimits)
-		adminAPI.Get("/", presenter.AdminPresenter.ListCustomers)
-		adminAPI.Get("/:customerId", presenter.AdminPresenter.GetCustomerByID)
-		adminAPI.Post("/:customerId/verify", presenter.AdminPresenter.VerifyCustomer)
+		adminCustomersAPI.Post("/:customerId/limits", presenter.AdminPresenter.SetLimits)
+		adminCustomersAPI.Get("/", presenter.AdminPresenter.ListCustomers)
+		adminCustomersAPI.Get("/:customerId", presenter.AdminPresenter.GetCustomerByID)
+		adminCustomersAPI.Post("/:customerId/verify", presenter.AdminPresenter.VerifyCustomer)
 	}
 
 	return app

@@ -43,6 +43,10 @@ func (h *ProfileHandler) Register(c *fiber.Ctx) error {
 		return common.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body")
 	}
 
+	// if err := h.validate.Struct(&req); err != nil {
+	// 	return common.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
+	// }
+
 	// Get files from form
 	ktpPhotoFile, err := c.FormFile("ktp_photo")
 	if err != nil {
@@ -66,7 +70,7 @@ func (h *ProfileHandler) Register(c *fiber.Ctx) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		url, err := h.cloudinaryService.UploadImage(ctx, ktpPhotoFile, "photos")
+		url, err := h.cloudinaryService.UploadImage(ctx, ktpPhotoFile, "multifinance")
 		resultChan <- cloudinary.UploadResult{
 			URL:   url,
 			Error: err,
@@ -78,7 +82,7 @@ func (h *ProfileHandler) Register(c *fiber.Ctx) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		url, err := h.cloudinaryService.UploadImage(ctx, selfiePhotoFile, "photos")
+		url, err := h.cloudinaryService.UploadImage(ctx, selfiePhotoFile, "multifinance")
 		resultChan <- cloudinary.UploadResult{
 			URL:   url,
 			Error: err,
@@ -116,10 +120,6 @@ func (h *ProfileHandler) Register(c *fiber.Ctx) error {
 			Success: false,
 			Error:   fmt.Sprintf("Upload errors: %v", uploadErrors),
 		})
-	}
-
-	if err := h.validate.Struct(&req); err != nil {
-		return common.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	dtoRegister := dto.RegisterToEntity(req, ktpUrl, selfieUrl)

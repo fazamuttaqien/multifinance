@@ -46,7 +46,7 @@ func (t *transactionRepository) FindPaginatedByCustomerID(ctx context.Context, c
 // CreateTransaction implements TransactionRepository.
 func (t *transactionRepository) CreateTransaction(ctx context.Context, transaction domain.Transaction) error {
 	data := model.TransactionFromEntity(transaction)
-	return t.db.WithContext(ctx).Create(data).Error
+	return t.db.WithContext(ctx).Create(&data).Error
 }
 
 // SumActivePrincipalByCustomerIDAndTenorID implements TransactionRepository.

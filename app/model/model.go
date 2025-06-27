@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 // Customer represents the customers table
 type Customer struct {
@@ -101,11 +105,11 @@ func (Transaction) TableName() string {
 }
 
 // Database migration function
-// func MigrateDB(db *gorm.DB) error {
-// 	return db.AutoMigrate(
-// 		&Customer{},
-// 		&Tenor{},
-// 		&CustomerLimit{},
-// 		&Transaction{},
-// 	)
-// }
+func AutoMigrate(db *gorm.DB) error {
+	return db.AutoMigrate(
+		&Customer{},
+		&Tenor{},
+		&CustomerLimit{},
+		&Transaction{},
+	)
+}

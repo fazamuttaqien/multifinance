@@ -6,6 +6,7 @@ import (
 
 func TransactionFromEntity(data domain.Transaction) Transaction {
 	return Transaction{
+		ID:                     data.ID,
 		ContractNumber:         data.ContractNumber,
 		CustomerID:             data.CustomerID,
 		TenorID:                data.TenorID,
@@ -21,6 +22,7 @@ func TransactionFromEntity(data domain.Transaction) Transaction {
 
 func TransactionToEntity(data Transaction) *domain.Transaction {
 	return &domain.Transaction{
+		ID:                     data.ID,
 		ContractNumber:         data.ContractNumber,
 		CustomerID:             data.CustomerID,
 		TenorID:                data.TenorID,
@@ -38,6 +40,7 @@ func TransactionsToEntity(data []Transaction) []domain.Transaction {
 	responses := make([]domain.Transaction, len(data))
 	for i, t := range data {
 		responses[i] = domain.Transaction{
+			ID:                     t.ID,
 			ContractNumber:         t.ContractNumber,
 			CustomerID:             t.CustomerID,
 			TenorID:                t.TenorID,

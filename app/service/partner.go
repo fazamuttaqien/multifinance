@@ -6,7 +6,7 @@ import (
 
 	"github.com/fazamuttaqien/multifinance/domain"
 	"github.com/fazamuttaqien/multifinance/dto"
-	var_error "github.com/fazamuttaqien/multifinance/helper/error"
+	"github.com/fazamuttaqien/multifinance/helper/common"
 	"github.com/fazamuttaqien/multifinance/repository"
 )
 
@@ -25,7 +25,7 @@ func (p *partnerService) CheckLimit(ctx context.Context, req dto.CheckLimitReque
 		return nil, err
 	}
 	if cust == nil {
-		return nil, var_error.ErrCustomerNotFound
+		return nil, common.ErrCustomerNotFound
 	}
 	if cust.VerificationStatus != domain.VerificationVerified {
 		return nil, fmt.Errorf("customer %s is not verified", req.NIK)
@@ -36,7 +36,7 @@ func (p *partnerService) CheckLimit(ctx context.Context, req dto.CheckLimitReque
 		return nil, err
 	}
 	if tenor == nil {
-		return nil, var_error.ErrTenorNotFound
+		return nil, common.ErrTenorNotFound
 	}
 
 	// 2. Hitung Sisa Limit
@@ -45,7 +45,7 @@ func (p *partnerService) CheckLimit(ctx context.Context, req dto.CheckLimitReque
 		return nil, err
 	}
 	if limit == nil {
-		return nil, var_error.ErrLimitNotSet
+		return nil, common.ErrLimitNotSet
 	}
 
 	usedAmount, err := p.transactionRepository.SumActivePrincipalByCustomerIDAndTenorID(

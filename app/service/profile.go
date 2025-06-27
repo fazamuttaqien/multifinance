@@ -9,7 +9,8 @@ import (
 
 	"github.com/fazamuttaqien/multifinance/domain"
 	"github.com/fazamuttaqien/multifinance/dto"
-	helper_error "github.com/fazamuttaqien/multifinance/helper/error"
+	"github.com/fazamuttaqien/multifinance/helper/common"
+	"github.com/fazamuttaqien/multifinance/model"
 	"github.com/fazamuttaqien/multifinance/repository"
 	"gorm.io/gorm"
 )
@@ -38,7 +39,7 @@ func (p *profileService) CreateTransaction(ctx context.Context, req dto.Transact
 		return nil, fmt.Errorf("error finding customer: %w", err)
 	}
 	if lockedCustomer == nil {
-		return nil, helper_error.ErrCustomerNotFound
+		return nil, common.ErrCustomerNotFound
 	}
 
 	// Memastikan costumer sudah terverifikasi
@@ -53,7 +54,7 @@ func (p *profileService) CreateTransaction(ctx context.Context, req dto.Transact
 		return nil, err
 	}
 	if tenor == nil {
-		return nil, helper_error.ErrTenorNotFound
+		return nil, common.ErrTenorNotFound
 	}
 
 	// 3. Validasi ulang limit di dalam transanksi yang terkunci
@@ -63,7 +64,7 @@ func (p *profileService) CreateTransaction(ctx context.Context, req dto.Transact
 		return nil, err
 	}
 	if limit == nil {
-		return nil, helper_error.ErrLimitNotSet
+		return nil, common.ErrLimitNotSet
 	}
 	totalLimit := limit.LimitAmount
 
@@ -77,7 +78,7 @@ func (p *profileService) CreateTransaction(ctx context.Context, req dto.Transact
 	transactionPrincipal := req.OTRAmount + req.AdminFee
 
 	if remainingLimit < transactionPrincipal {
-		return nil, helper_error.ErrInsufficientLimit
+		return nil, common.ErrInsufficientLimit
 	}
 
 	// 4. Hitung komponen finansial lainnya (business logic)
@@ -215,7 +216,7 @@ func (p *profileService) GetProfile(ctx context.Context, customerID uint64) (*do
 		return nil, err
 	}
 	if customer == nil {
-		return nil, helper_error.ErrCustomerNotFound
+		return nil, common.ErrCustomerNotFound
 	}
 
 	return customer, nil
@@ -229,19 +230,23 @@ func (p *profileService) UpdateProfile(ctx context.Context, customerID uint64, r
 	}
 	defer tx.Rollback()
 
-	customerTx := repository.NewCustomerRepository(tx)
-	customer, err := customerTx.FindByID(ctx, customerID)
-	if err != nil {
+	var customer model.Customer
+	if err := tx.First(&customer, customerID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return common.ErrCustomerNotFound
+		}
 		return err
 	}
-	if customer == nil {
-		return helper_error.ErrCustomerNotFound
+
+	updates := map[string]any{
+		"full_name": req.FullName,
+		"salary":    req.Salary,
 	}
 
 	customer.FullName = req.FullName
 	customer.Salary = req.Salary
 
-	if err := customerTx.Save(ctx, customer); err != nil {
+	if err := tx.Model(&customer).Updates(updates).Error; err != nil {
 		return err
 	}
 

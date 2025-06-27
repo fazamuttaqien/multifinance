@@ -6,6 +6,7 @@ import (
 
 func CustomerFromEntity(data *domain.Customer) Customer {
 	return Customer{
+		ID:                 data.ID,
 		NIK:                data.NIK,
 		FullName:           data.FullName,
 		LegalName:          data.LegalName,
@@ -20,6 +21,7 @@ func CustomerFromEntity(data *domain.Customer) Customer {
 
 func CustomerToEntity(data Customer) *domain.Customer {
 	return &domain.Customer{
+		ID:                 data.ID,
 		NIK:                data.NIK,
 		FullName:           data.FullName,
 		LegalName:          data.LegalName,

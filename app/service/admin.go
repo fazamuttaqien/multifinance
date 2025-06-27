@@ -2,12 +2,15 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 	"math"
 
 	"github.com/fazamuttaqien/multifinance/domain"
 	"github.com/fazamuttaqien/multifinance/dto"
-	helper_error "github.com/fazamuttaqien/multifinance/helper/error"
+	"github.com/fazamuttaqien/multifinance/helper/common"
+	"github.com/fazamuttaqien/multifinance/model"
 	"github.com/fazamuttaqien/multifinance/repository"
 	"gorm.io/gorm"
 )
@@ -33,7 +36,7 @@ func (a *adminService) SetLimits(ctx context.Context, customerID uint64, req dto
 		return fmt.Errorf("error finding customer: %w", err)
 	}
 	if customer == nil {
-		return helper_error.ErrCustomerNotFound
+		return common.ErrCustomerNotFound
 	}
 
 	limitsToUpsert := make([]domain.CustomerLimit, 0, len(req.Limits))
@@ -42,16 +45,17 @@ func (a *adminService) SetLimits(ctx context.Context, customerID uint64, req dto
 	// 2. Loop dan validasi setiap item limit dalam request
 	for _, item := range req.Limits {
 		if item.LimitAmount < 0 {
-			return helper_error.ErrInvalidLimitAmount
+			return common.ErrInvalidLimitAmount
 		}
 
 		// Cari tenor ID berdasarkan durasi bulan
 		tenor, err := tenorTx.FindByDuration(ctx, item.TenorMonths)
+		log.Println("Tenor: ", tenor)
 		if err != nil {
 			return fmt.Errorf("error finding tenor for %d months: %w", item.TenorMonths, err)
 		}
 		if tenor == nil {
-			return fmt.Errorf("%w: for %d months", helper_error.ErrTenorNotFound, item.TenorMonths)
+			return fmt.Errorf("%w: for %d months", common.ErrTenorNotFound, item.TenorMonths)
 		}
 
 		// Menyiapkan data untuk di upsert
@@ -81,7 +85,7 @@ func (a *adminService) GetProfile(ctx context.Context, customerID uint64) (*doma
 		return nil, err
 	}
 	if customer == nil {
-		return nil, helper_error.ErrCustomerNotFound
+		return nil, common.ErrCustomerNotFound
 	}
 
 	return customer, nil
@@ -116,24 +120,22 @@ func (a *adminService) VerifyCustomer(ctx context.Context, customerID uint64, re
 	}
 	defer tx.Rollback()
 
-	customerTx := repository.NewCustomerRepository(tx)
-	customer, err := customerTx.FindByID(ctx, customerID)
-	if err != nil {
+	var customer model.Customer
+	if err := tx.First(&customer, customerID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return common.ErrCustomerNotFound
+		}
 		return err
-	}
-	if customer == nil {
-		return helper_error.ErrCustomerNotFound
 	}
 
 	// Validasi: hanya bisa verifikasi customer yang statusnya PENDING
-	if customer.VerificationStatus != domain.VerificationPending {
+	if customer.VerificationStatus != model.VerificationPending {
 		return fmt.Errorf("customer is not in PENDING state, current state: %s", customer.VerificationStatus)
 	}
 
-	customer.VerificationStatus = req.Status
-	// Di sini bisa ditambahkan logika untuk menyimpan `req.Reason` jika diperlukan
+	customer.VerificationStatus = model.VerificationStatus(req.Status)
 
-	if err := customerTx.Save(ctx, customer); err != nil {
+	if err := tx.Model(&customer).Update("verification_status", req.Status).Error; err != nil {
 		return err
 	}
 

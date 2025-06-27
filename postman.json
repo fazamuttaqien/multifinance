@@ -1,0 +1,560 @@
+{
+  "info": {
+    "_postman_id": "c1f7b8e0-a2d1-4f8e-b9c1-3d7f9a8e0b4a",
+    "name": "PT XYZ Multifinance API",
+    "description": "Koleksi API untuk sistem PT XYZ Multifinance yang dibangun dengan Go, Fiber, dan GORM.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Public / Registration",
+      "item": [
+        {
+          "name": "Register New Customer",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "nik",
+                  "value": "3275010203040005",
+                  "type": "text",
+                  "description": "Nomor Induk Kependudukan (16 digit)"
+                },
+                {
+                  "key": "full_name",
+                  "value": "Budi Santoso",
+                  "type": "text",
+                  "description": "Nama panggilan / nama lengkap"
+                },
+                {
+                  "key": "legal_name",
+                  "value": "BUDI SANTOSO",
+                  "type": "text",
+                  "description": "Nama sesuai KTP"
+                },
+                {
+                  "key": "birth_place",
+                  "value": "Jakarta",
+                  "type": "text"
+                },
+                {
+                  "key": "birth_date",
+                  "value": "1995-03-02",
+                  "type": "text",
+                  "description": "Format: YYYY-MM-DD"
+                },
+                {
+                  "key": "salary",
+                  "value": "7500000",
+                  "type": "text"
+                },
+                {
+                  "key": "ktp_photo",
+                  "type": "file",
+                  "description": "Upload file gambar KTP"
+                },
+                {
+                  "key": "selfie_photo",
+                  "type": "file",
+                  "description": "Upload file gambar selfie dengan KTP"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "register"]
+            },
+            "description": "Endpoint untuk mendaftarkan konsumen baru. Menggunakan `multipart/form-data` untuk mengirim data teks dan file."
+          },
+          "response": [
+            {
+              "name": "Success (201 Created)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": []
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/customers/register",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["customers", "register"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"id\": 2,\n    \"nik\": \"3275010203040005\",\n    \"full_name\": \"Budi Santoso\",\n    \"legal_name\": \"BUDI SANTOSO\",\n    \"birth_place\": \"Jakarta\",\n    \"birth_date\": \"1995-03-02T00:00:00Z\",\n    \"salary\": 7500000,\n    \"ktp_photo_url\": \"https://res.cloudinary.com/.../ktp.jpg\",\n    \"selfie_photo_url\": \"https://res.cloudinary.com/.../selfie.jpg\",\n    \"verification_status\": \"PENDING\",\n    \"created_at\": \"2023-10-27T10:00:00Z\",\n    \"updated_at\": \"2023-10-27T10:00:00Z\"\n}"
+            },
+            {
+              "name": "Conflict - NIK Exists (409)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "formdata",
+                  "formdata": []
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/customers/register",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["customers", "register"]
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": null,
+              "cookie": [],
+              "body": "{\n    \"error\": \"nik already exists\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Partner APIs",
+      "item": [
+        {
+          "name": "Create New Transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_nik\": \"3275010203040005\",\n  \"tenor_months\": 6,\n  \"asset_name\": \"Motor Yamaha NMAX\",\n  \"otr_amount\": 35000000,\n  \"admin_fee\": 750000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/partners/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["partners", "transactions"]
+            },
+            "description": "Endpoint yang digunakan oleh partner (ecommerce/dealer) untuk membuat transaksi pembiayaan baru."
+          },
+          "response": [
+            {
+              "name": "Success (201 Created)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {},
+                "url": {
+                  "raw": "{{baseUrl}}/partners/transactions",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["partners", "transactions"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": null,
+              "cookie": [],
+              "body": "{\n    \"id\": 1,\n    \"contract_number\": \"KTR-20231027-12345\",\n    \"customer_id\": 2,\n    \"tenor_id\": 4,\n    \"asset_name\": \"Motor Yamaha NMAX\",\n    \"otr_amount\": 35000000,\n    \"admin_fee\": 750000,\n    \"total_interest\": 4200000,\n    \"total_installment_amount\": 39950000,\n    \"status\": \"ACTIVE\",\n    \"transaction_date\": \"2023-10-27T11:00:00Z\"\n}"
+            },
+            {
+              "name": "Insufficient Limit (422)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {},
+                "url": {
+                  "raw": "{{baseUrl}}/partners/transactions",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["partners", "transactions"]
+                }
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": null,
+              "cookie": [],
+              "body": "{\n    \"status\": \"rejected\",\n    \"reason\": \"insufficient limit for this transaction\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Check Customer Limit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_nik\": \"3275010203040005\",\n  \"tenor_months\": 6,\n  \"transaction_amount\": 10000000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/partners/check-limit",
+              "host": ["{{baseUrl}}"],
+              "path": ["partners", "check-limit"]
+            },
+            "description": "Digunakan oleh partner sebelum memulai transaksi untuk memastikan limit konsumen mencukupi."
+          },
+          "response": [
+            {
+              "name": "Approved (200 OK)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {},
+                "url": {
+                  "raw": "{{baseUrl}}/partners/check-limit",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["partners", "check-limit"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": null,
+              "cookie": [],
+              "body": "{\n    \"status\": \"approved\",\n    \"message\": \"Limit is sufficient.\",\n    \"remaining_limit\": 40000000\n}"
+            },
+            {
+              "name": "Rejected (422)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {},
+                "url": {
+                  "raw": "{{baseUrl}}/partners/check-limit",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["partners", "check-limit"]
+                }
+              },
+              "status": "Unprocessable Entity",
+              "code": 422,
+              "_postman_previewlanguage": "json",
+              "header": null,
+              "cookie": [],
+              "body": "{\n    \"status\": \"rejected\",\n    \"message\": \"Insufficient limit for this transaction.\",\n    \"remaining_limit\": 500000\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin APIs",
+      "item": [
+        {
+          "name": "List Customers (with filters)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-ID",
+                "value": "1",
+                "description": "ID Admin harus 1"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/customers?status=PENDING&page=1&limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "customers"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING",
+                  "description": "Filter by PENDING, VERIFIED, or REJECTED"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Mendapatkan daftar konsumen dengan paginasi dan filter berdasarkan status verifikasi."
+          },
+          "response": [
+            {
+              "name": "Success (200 OK)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/admin/customers",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "customers"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": null,
+              "cookie": [],
+              "body": "{\n    \"data\": [\n        {\n            \"id\": 2,\n            \"nik\": \"3275010203040005\",\n            \"full_name\": \"Budi Santoso\",\n            \"legal_name\": \"BUDI SANTOSO\",\n            \"birth_place\": \"Jakarta\",\n            \"birth_date\": \"1995-03-02T00:00:00Z\",\n            \"salary\": 7500000,\n            \"ktp_photo_url\": \"https://...\",\n            \"selfie_photo_url\": \"https://...\",\n            \"verification_status\": \"PENDING\",\n            \"created_at\": \"2023-10-27T10:00:00Z\",\n            \"updated_at\": \"2023-10-27T10:00:00Z\"\n        }\n    ],\n    \"total\": 1,\n    \"page\": 1,\n    \"limit\": 5,\n    \"total_pages\": 1\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Customer Details by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-ID",
+                "value": "1"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/customers/2",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "customers", "2"]
+            },
+            "description": "Mendapatkan detail satu konsumen berdasarkan ID-nya."
+          },
+          "response": []
+        },
+        {
+          "name": "Verify or Reject a Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-ID",
+                "value": "1"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"VERIFIED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/customers/2/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "customers", "2", "verify"]
+            },
+            "description": "Mengubah status verifikasi seorang konsumen. Status yang valid adalah `VERIFIED` atau `REJECTED`."
+          },
+          "response": [
+            {
+              "name": "Success (200 OK)",
+              "originalRequest": {
+                "method": "POST",
+                "header": [],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/customers/2/verify",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "customers", "2", "verify"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": null,
+              "cookie": [],
+              "body": "{\n    \"message\": \"Customer verification status updated\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Set or Update Customer Limits",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-User-ID",
+                "value": "1"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"limits\": [\n        {\n            \"tenor_months\": 3,\n            \"limit_amount\": 1500000\n        },\n        {\n            \"tenor_months\": 6,\n            \"limit_amount\": 4000000\n        },\n        {\n            \"tenor_months\": 12,\n            \"limit_amount\": 8000000\n        }\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/customers/2/limits",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "customers", "2", "limits"]
+            },
+            "description": "Menetapkan atau memperbarui limit kredit untuk seorang konsumen. Operasi ini bersifat UPSERT (Update or Insert)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Customer (Me) APIs",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-ID",
+                "value": "2",
+                "description": "ID Customer yang sedang login (bukan admin)"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/me/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["me", "profile"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-User-ID",
+                "value": "2"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"full_name\": \"Budi Santoso Updated\",\n    \"salary\": 8500000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/me/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["me", "profile"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Limits",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-ID",
+                "value": "2"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/me/limits",
+              "host": ["{{baseUrl}}"],
+              "path": ["me", "limits"]
+            },
+            "description": "Mendapatkan detail limit yang dimiliki, termasuk sisa limit yang tersedia."
+          },
+          "response": [
+            {
+              "name": "Success (200 OK)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/me/limits",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["me", "limits"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": null,
+              "cookie": [],
+              "body": "[\n    {\n        \"tenor_months\": 3,\n        \"limit_amount\": 1500000,\n        \"used_amount\": 0,\n        \"remaining_limit\": 1500000\n    },\n    {\n        \"tenor_months\": 6,\n        \"limit_amount\": 4000000,\n        \"used_amount\": 0,\n        \"remaining_limit\": 4000000\n    }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Get My Transactions (Paginated)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-User-ID",
+                "value": "2"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/me/transactions?status=ACTIVE&limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["me", "transactions"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "ACTIVE",
+                  "description": "(Opsional) Filter berdasarkan status: ACTIVE, PAID_OFF, dll."
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api/v1"
+    }
+  ]
+}

@@ -13,43 +13,40 @@ import (
 	"github.com/fazamuttaqien/multifinance/router"
 	"github.com/joho/godotenv"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func main() {
-	// Load environment variables from .env file
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using system environment variables")
 	}
 
-	// Initialize db connection
 	db, err := infra.InitializeDatabase()
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer infra.Close(db)
 
+	// Auto-migrate models
+	if err := model.AutoMigrate(db); err != nil {
+		log.Fatalf("Failed to migrate database: %v", err)
+	}
+	log.Println("Database migration completed!")
+
+	seedTenors(db)
+
 	seedAdmin(db)
 
-	// Enable debug mode for development (optional)
 	infra.EnableDebugMode(db)
 
-	// Test connection
 	if err := infra.Ping(db); err != nil {
 		log.Fatalf("Database ping failed: %v", err)
 	}
 	log.Println("Database connection successful!")
 
-	// Auto-migrate models
-	// if err := models.MigrateDB(db.DB); err != nil {
-	// 	log.Fatalf("Failed to migrate database: %v", err)
-	// }
-	// log.Println("Database migration completed!")
-
-	// Print connection stats
 	stats := infra.GetStats(db)
 	log.Printf("Database stats: %+v", stats)
 
-	// Initialize Cloudinary service
 	cloudinaryService, err := cloudinary.NewCloudinaryService(cloudinary.CloudinaryConfig{
 		CloudName: os.Getenv("CLOUDINARY_CLOUD_NAME"),
 		APIKey:    os.Getenv("CLOUDINARY_API_KEY"),
@@ -84,7 +81,6 @@ func seedAdmin(db *gorm.DB) {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		log.Println("Admin user not found, creating one...")
 
-		// Buat data admin baru
 		newAdmin := model.Customer{
 			ID:                 AdminID,
 			NIK:                AdminNIK,
@@ -107,4 +103,27 @@ func seedAdmin(db *gorm.DB) {
 	} else {
 		log.Println("Admin user already exists.")
 	}
+}
+
+func seedTenors(db *gorm.DB) {
+	log.Println("Seeding master tenors...")
+
+	tenors := []model.Tenor{
+		{ID: 1, DurationMonths: 1, Description: "1 Months"},
+		{ID: 2, DurationMonths: 3, Description: "3 Months"},
+		{ID: 3, DurationMonths: 6, Description: "6 Months"},
+		{ID: 4, DurationMonths: 12, Description: "12 Months"},
+		{ID: 5, DurationMonths: 24, Description: "24 Months"},
+	}
+
+	// Menggunakan OnConflict untuk mencegah error jika data sudah ada (UPSERT)
+	// Jika ada konflik pada kolom 'duration_months', tidak melakukan apa-apa.
+	if err := db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "duration_months"}},
+		DoNothing: true,
+	}).Create(&tenors).Error; err != nil {
+		log.Fatalf("Failed to seed tenors: %v", err)
+	}
+
+	log.Println("Master tenors seeded successfully.")
 }

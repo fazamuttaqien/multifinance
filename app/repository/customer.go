@@ -31,17 +31,17 @@ func (c *customerRepository) FindByID(ctx context.Context, id uint64) (*domain.C
 func (c *customerRepository) FindByNIK(ctx context.Context, nik string, lock bool) (*domain.Customer, error) {
 	var customer model.Customer
 
-	if !lock {
-		if err := c.db.WithContext(ctx).Where("nik = ?", nik).First(&customer).Error; err != nil {
+	if lock {
+		// Menggunakan Clauses(clause.Locking{Strength: "UPDATE"}) untuk SELECT ... FOR UPDATE
+		err := c.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("nik = ?", nik).First(&customer).Error
+		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil, nil
 			}
 			return nil, err
 		}
 	} else {
-		// Menggunakan Clauses(clause.Locking{Strength: "UPDATE"}) untuk SELECT ... FOR UPDATE
-		err := c.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("nik = ?", nik).First(&customer).Error
-		if err != nil {
+		if err := c.db.WithContext(ctx).Where("nik = ?", nik).First(&customer).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil, nil
 			}
@@ -85,7 +85,7 @@ func (c *customerRepository) FindPaginated(ctx context.Context, params domain.Pa
 // Save implements CustomerRepository.
 func (c *customerRepository) Save(ctx context.Context, customer *domain.Customer) error {
 	data := model.CustomerFromEntity(customer)
-	return c.db.WithContext(ctx).Create(data).Error
+	return c.db.WithContext(ctx).Create(&data).Error
 }
 
 func NewCustomerRepository(db *gorm.DB) CustomerRepository {
