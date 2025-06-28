@@ -27,25 +27,25 @@ type DatabaseConfig struct {
 
 // LoadConfigFromEnv Loads database configuration from environment variables
 func LoadConfigFromEnv() *DatabaseConfig {
-	port, err := strconv.Atoi(common.GetEnv("DB_PORT", "3306"))
+	port, err := strconv.Atoi(common.GetEnv("MYSQL_PORT", "3306"))
 	if err != nil {
 		port = 3306
 	}
 
-	parseTime, err := strconv.ParseBool(common.GetEnv("DB_PARSE_TIME", "true"))
+	parseTime, err := strconv.ParseBool(common.GetEnv("MYSQL_PARSE_TIME", "true"))
 	if err != nil {
 		parseTime = true
 	}
 
 	return &DatabaseConfig{
-		Host:         common.GetEnv("DB_HOST", "localhost"),
+		Host:         common.GetEnv("MYSQL_HOST", "localhost"),
 		Port:         port,
-		Username:     common.GetEnv("DB_USERNAME", "root"),
-		Password:     common.GetEnv("DB_PASSWORD", ""),
-		DatabaseName: common.GetEnv("DB_NAME", "loan_system"),
-		Charset:      common.GetEnv("DB_CHARSET", "uft8mb4"),
+		Username:     common.GetEnv("MYSQL_USERNAME", "root"),
+		Password:     common.GetEnv("MYSQL_PASSWORD", ""),
+		DatabaseName: common.GetEnv("MYSQL_NAME", "loan_system"),
+		Charset:      common.GetEnv("MYSQL_CHARSET", "uft8mb4"),
 		ParseTime:    parseTime,
-		Loc:          common.GetEnv("DB_LOC", "Local"),
+		Loc:          common.GetEnv("MYSQL_LOC", "Local"),
 	}
 }
 
