@@ -21,7 +21,7 @@ type partnerService struct {
 }
 
 // CreateTransaction implements PartnerServices.
-func (p *partnerService) CreateTransaction(ctx context.Context, req dto.Transaction) (*domain.Transaction, error) {
+func (p *partnerService) CreateTransaction(ctx context.Context, req dto.CreateTransactionRequest) (*domain.Transaction, error) {
 	// Start Transaction
 	tx := p.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
@@ -31,7 +31,7 @@ func (p *partnerService) CreateTransaction(ctx context.Context, req dto.Transact
 
 	// 1. Mendapatkan Customer berdasarkan NIK dan KUNCI barisnya untuk mencegah race condition
 	customerTx := repository.NewCustomerRepository(tx)
-	lockedCustomer, err := customerTx.FindByNIKWithLock(ctx, req.NIK)
+	lockedCustomer, err := customerTx.FindByNIKWithLock(ctx, req.CustomerNIK)
 	if err != nil {
 		return nil, fmt.Errorf("error finding customer: %w", err)
 	}
@@ -41,7 +41,7 @@ func (p *partnerService) CreateTransaction(ctx context.Context, req dto.Transact
 
 	// Memastikan costumer sudah terverifikasi
 	if lockedCustomer.VerificationStatus != domain.VerificationVerified {
-		return nil, fmt.Errorf("customer with NIK %s is not verified", req.NIK)
+		return nil, fmt.Errorf("customer with NIK %s is not verified", req.CustomerNIK)
 	}
 
 	// 2. Mendapatkan Tenor

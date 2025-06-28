@@ -113,7 +113,7 @@ func (a *adminService) ListCustomers(ctx context.Context, params domain.Params) 
 }
 
 // VerifyCustomer implements AdminUsecases.
-func (a *adminService) VerifyCustomer(ctx context.Context, customerID uint64, req dto.Verification) error {
+func (a *adminService) VerifyCustomer(ctx context.Context, customerID uint64, req dto.VerificationRequest) error {
 	tx := a.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
 		return tx.Error

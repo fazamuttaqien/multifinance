@@ -151,7 +151,7 @@ func TestProfileHandler_GetMyLimits(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		// Konfigurasi mock untuk mengembalikan data limit
-		expectedLimits := []dto.LimitDetail{
+		expectedLimits := []dto.LimitDetailResponse{
 			{
 				TenorMonths:    3,
 				LimitAmount:    1000000,
@@ -180,7 +180,7 @@ func TestProfileHandler_GetMyLimits(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 		// Baca dan validasi body response
-		var actualLimits []dto.LimitDetail
+		var actualLimits []dto.LimitDetailResponse
 		err = json.NewDecoder(resp.Body).Decode(&actualLimits)
 		assert.NoError(t, err)
 

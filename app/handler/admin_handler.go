@@ -56,7 +56,7 @@ func (h *AdminHandler) VerifyCustomer(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid customer ID"})
 	}
 
-	var req dto.Verification
+	var req dto.VerificationRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse request body"})
 	}

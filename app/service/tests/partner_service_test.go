@@ -186,8 +186,8 @@ func TestCreateTransaction(t *testing.T) {
 		db.Create(testTenor)
 		db.Create(testLimit)
 
-		req := dto.Transaction{
-			NIK:         "1234567890123456",
+		req := dto.CreateTransactionRequest{
+			CustomerNIK: "1234567890123456",
 			TenorMonths: 6,
 			AssetName:   "Test Asset",
 			OTRAmount:   40000,
@@ -242,8 +242,8 @@ func TestCreateTransaction(t *testing.T) {
 		db.Create(&domain.Tenor{ID: 1, DurationMonths: 6})
 		db.Create(&domain.CustomerLimit{CustomerID: 2, TenorID: 1, LimitAmount: 20000})
 
-		req := dto.Transaction{
-			NIK:         "1234567890123456",
+		req := dto.CreateTransactionRequest{
+			CustomerNIK: "1234567890123456",
 			TenorMonths: 6,
 			AssetName:   "Expensive Asset",
 			OTRAmount:   25000, // Melebihi limit
@@ -293,7 +293,7 @@ func TestCreateTransaction(t *testing.T) {
 			SelfieUrl:          "url"},
 		)
 
-		req := dto.Transaction{NIK: "1234567890123456"}
+		req := dto.CreateTransactionRequest{CustomerNIK: "1234567890123456"}
 
 		// Act
 		_, err := service.CreateTransaction(context.Background(), req)
@@ -307,7 +307,7 @@ func TestCreateTransaction(t *testing.T) {
 	t.Run("Failure - Customer Not Found", func(t *testing.T) {
 		// Arrange
 		db := setupTestDB(t)
-		
+
 		customerRepository := repository.NewCustomerRepository(db)
 		tenorRepository := repository.NewTenorRepository(db)
 		limitRepository := repository.NewLimitRepository(db)
@@ -323,7 +323,7 @@ func TestCreateTransaction(t *testing.T) {
 
 		// Tidak ada customer yang di-seed
 
-		req := dto.Transaction{NIK: "0000"}
+		req := dto.CreateTransactionRequest{CustomerNIK: "0000"}
 
 		// Act
 		_, err := service.CreateTransaction(context.Background(), req)

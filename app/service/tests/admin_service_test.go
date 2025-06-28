@@ -118,7 +118,7 @@ func TestVerifyCustomer(t *testing.T) {
 
 	// Skenario 1: Sukses verifikasi customer PENDING
 	t.Run("Success Verifying Pending Customer", func(t *testing.T) {
-		req := dto.Verification{Status: domain.VerificationVerified}
+		req := dto.VerificationRequest{Status: domain.VerificationVerified}
 
 		// Act
 		err := service.VerifyCustomer(context.Background(), 2, req)
@@ -134,7 +134,7 @@ func TestVerifyCustomer(t *testing.T) {
 
 	// Skenario 2: Gagal verifikasi customer yang sudah VERIFIED
 	t.Run("Fail Verifying Already Verified Customer", func(t *testing.T) {
-		req := dto.Verification{Status: domain.VerificationRejected}
+		req := dto.VerificationRequest{Status: domain.VerificationRejected}
 
 		// Act
 		err := service.VerifyCustomer(context.Background(), 2, req)
@@ -158,7 +158,7 @@ func TestSetLimits(t *testing.T) {
 
 	t.Run("Success Setting New Limits", func(t *testing.T) {
 		req := dto.SetLimits{
-			Limits: []dto.LimitItem{
+			Limits: []dto.LimitItemRequest{
 				{TenorMonths: 3, LimitAmount: 1000},
 				{TenorMonths: 6, LimitAmount: 2000},
 			},
@@ -179,7 +179,7 @@ func TestSetLimits(t *testing.T) {
 
 	t.Run("Success Updating Existing Limits", func(t *testing.T) {
 		req := dto.SetLimits{
-			Limits: []dto.LimitItem{
+			Limits: []dto.LimitItemRequest{
 				{TenorMonths: 3, LimitAmount: 1500}, // Update nilai ini
 			},
 		}

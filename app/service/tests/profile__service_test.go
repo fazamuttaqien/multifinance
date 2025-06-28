@@ -32,7 +32,7 @@ func TestRegister(t *testing.T) {
 		mockMediaRepository.MockUploadImageURL = "http://cloudinary.com/image.jpg"
 
 		// Act
-		customer, err := service.Register(context.Background(), &req)
+		customer, err := service.CreateProfile(context.Background(), &req)
 
 		// Assert
 		assert.NoError(t, err)
@@ -47,7 +47,7 @@ func TestRegister(t *testing.T) {
 		mockCustomerRepository.MockFindByNIKData = &domain.Customer{} // NIK ditemukan
 
 		// Act
-		_, err := service.Register(context.Background(), &req)
+		_, err := service.CreateProfile(context.Background(), &req)
 
 		// Assert
 		assert.Error(t, err)
@@ -60,7 +60,7 @@ func TestRegister(t *testing.T) {
 		mockMediaRepository.MockUploadImageError = errors.New("upload failed")
 
 		// Act
-		_, err := service.Register(context.Background(), &req)
+		_, err := service.CreateProfile(context.Background(), &req)
 
 		// Assert
 		assert.Error(t, err)

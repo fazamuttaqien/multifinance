@@ -34,24 +34,26 @@ func NewProfileHandler(
 	}
 }
 
-func (h *ProfileHandler) Register(c *fiber.Ctx) error {
-	var req dto.Register
+func (h *ProfileHandler) CreateProfile(c *fiber.Ctx) error {
+	var req dto.CreateProfileRequest
 
 	// Parse multipart form
 	if err := c.BodyParser(&req); err != nil {
 		return common.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body")
 	}
-	
+
 	// Get files from form
-	ktpPhotoFile, err := c.FormFile("ktp_photo")
+	ktpFile, err := c.FormFile("ktp_photo")
 	if err != nil {
 		return common.ErrorResponse(c, fiber.StatusBadRequest, "KTP photo is a required form field")
 	}
-	
-	selfiePhotoFile, err := c.FormFile("selfie_photo")
+	req.KtpPhoto = ktpFile
+
+	selfieFile, err := c.FormFile("selfie_photo")
 	if err != nil {
 		return common.ErrorResponse(c, fiber.StatusBadRequest, "Selfie photo is a required form field")
 	}
+	req.SelfiePhoto = selfieFile
 
 	if err := h.validate.Struct(&req); err != nil {
 		return common.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
@@ -69,7 +71,7 @@ func (h *ProfileHandler) Register(c *fiber.Ctx) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		url, err := h.cloudinaryService.UploadImage(ctx, ktpPhotoFile, "multifinance")
+		url, err := h.cloudinaryService.UploadImage(ctx, ktpFile, "multifinance")
 		resultChan <- cloudinary.UploadResult{
 			URL:   url,
 			Error: err,
@@ -81,7 +83,7 @@ func (h *ProfileHandler) Register(c *fiber.Ctx) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		url, err := h.cloudinaryService.UploadImage(ctx, selfiePhotoFile, "multifinance")
+		url, err := h.cloudinaryService.UploadImage(ctx, selfieFile, "multifinance")
 		resultChan <- cloudinary.UploadResult{
 			URL:   url,
 			Error: err,
@@ -122,7 +124,7 @@ func (h *ProfileHandler) Register(c *fiber.Ctx) error {
 	}
 
 	dtoRegister := dto.RegisterToEntity(req, ktpUrl, selfieUrl)
-	newCustomer, err := h.profileService.Register(c.Context(), dtoRegister)
+	newCustomer, err := h.profileService.CreateProfile(c.Context(), dtoRegister)
 	if err != nil {
 		if err.Error() == "nik already registered" {
 			return common.ErrorResponse(c, fiber.StatusConflict, err.Error())
@@ -157,7 +159,7 @@ func (h *ProfileHandler) UpdateMyProfile(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	var req dto.Update
+	var req dto.UpdateProfileRequest
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse request"})

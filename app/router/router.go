@@ -18,7 +18,7 @@ func NewRouter(presenter presenter.Presenter, db *gorm.DB) *fiber.App {
 
 	api := app.Group("/api/v1")
 
-	api.Post("/register", presenter.ProfilePresenter.Register)
+	api.Post("/register", presenter.ProfilePresenter.CreateProfile)
 
 	customersAPI := api.Group("/customers", customerAuth)
 	{

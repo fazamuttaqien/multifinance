@@ -1,6 +1,6 @@
 package dto
 
-type LimitDetail struct {
+type LimitDetailResponse struct {
 	TenorMonths    uint8   `json:"tenor_months"`
 	LimitAmount    float64 `json:"limit_amount"`
 	UsedAmount     float64 `json:"used_amount"`

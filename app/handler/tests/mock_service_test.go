@@ -11,12 +11,12 @@ import (
 type mockProfileService struct {
 	MockRegisterResult          *domain.Customer
 	MockGetMyProfileResult      *domain.Customer
-	MockGetMyLimitsResult       []dto.LimitDetail
+	MockGetMyLimitsResult       []dto.LimitDetailResponse
 	MockGetMyTransactionsResult *domain.Paginated
 	MockError                   error
 }
 
-func (m *mockProfileService) Register(ctx context.Context, customer *domain.Customer) (*domain.Customer, error) {
+func (m *mockProfileService) CreateProfile(ctx context.Context, customer *domain.Customer) (*domain.Customer, error) {
 	if m.MockError != nil {
 		return nil, m.MockError
 	}
@@ -34,7 +34,7 @@ func (m *mockProfileService) UpdateProfile(ctx context.Context, id uint64, custo
 	return m.MockError
 }
 
-func (m *mockProfileService) GetMyLimits(ctx context.Context, id uint64) ([]dto.LimitDetail, error) {
+func (m *mockProfileService) GetMyLimits(ctx context.Context, id uint64) ([]dto.LimitDetailResponse, error) {
 	if m.MockError != nil {
 		return nil, m.MockError
 	}
@@ -80,7 +80,7 @@ func (m *mockAdminService) GetCustomerByID(ctx context.Context, id uint64) (*dom
 	return m.MockGetCustomerByIDResult, nil
 }
 
-func (m *mockAdminService) VerifyCustomer(ctx context.Context, id uint64, req dto.Verification) error {
+func (m *mockAdminService) VerifyCustomer(ctx context.Context, id uint64, req dto.VerificationRequest) error {
 	return m.MockError
 }
 
@@ -100,7 +100,8 @@ func (m *mockPartnerService) CheckLimit(ctx context.Context, req dto.CheckLimitR
 	}
 	return m.MockCheckLimitResult, nil
 }
-func (m *mockPartnerService) CreateTransaction(ctx context.Context, req dto.Transaction) (*domain.Transaction, error) {
+
+func (m *mockPartnerService) CreateTransaction(ctx context.Context, req dto.CreateTransactionRequest) (*domain.Transaction, error) {
 	if m.MockError != nil {
 		return nil, m.MockError
 	}

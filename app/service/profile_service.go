@@ -22,8 +22,8 @@ type profileService struct {
 	transactionRepository repository.TransactionRepository
 }
 
-// Register implements ProfileUsecases.
-func (p *profileService) Register(ctx context.Context, req *domain.Customer) (*domain.Customer, error) {
+// CreateProfile implements ProfileUsecases.
+func (p *profileService) CreateProfile(ctx context.Context, req *domain.Customer) (*domain.Customer, error) {
 	// 1. Cek duplikasi NIK
 	existingCustomer, err := p.customerRepository.FindByNIK(ctx, req.NIK)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -55,7 +55,7 @@ func (p *profileService) Register(ctx context.Context, req *domain.Customer) (*d
 }
 
 // GetMyLimits implements ProfileUsecases.
-func (p *profileService) GetMyLimits(ctx context.Context, customerID uint64) ([]dto.LimitDetail, error) {
+func (p *profileService) GetMyLimits(ctx context.Context, customerID uint64) ([]dto.LimitDetailResponse, error) {
 	// 1. Ambil semua limit yang ditetapkan untuk customer
 	customerLimits, err := p.limitRepository.FindAllByCustomerID(ctx, customerID)
 	if err != nil {
@@ -73,7 +73,7 @@ func (p *profileService) GetMyLimits(ctx context.Context, customerID uint64) ([]
 	}
 
 	// 3. Menyiapkan response
-	response := make([]dto.LimitDetail, 0, len(customerLimits))
+	response := make([]dto.LimitDetailResponse, 0, len(customerLimits))
 
 	for _, limit := range customerLimits {
 		// Hitung pemakaian tenor ini
@@ -82,7 +82,7 @@ func (p *profileService) GetMyLimits(ctx context.Context, customerID uint64) ([]
 			return nil, fmt.Errorf("failed to calculate used amount for tenor %d: %w", limit.TenorID, err)
 		}
 
-		detail := dto.LimitDetail{
+		detail := dto.LimitDetailResponse{
 			TenorMonths:    tenorMap[limit.TenorID],
 			LimitAmount:    limit.LimitAmount,
 			UsedAmount:     usedAmount,

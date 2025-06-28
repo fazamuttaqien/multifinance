@@ -22,7 +22,7 @@ func setupProfileApp(handler *handler.ProfileHandler) *fiber.App {
 		return c.Next()
 	}
 
-	app.Post("/register", handler.Register)
+	app.Post("/register", handler.CreateProfile)
 	app.Get("/profile", authMiddleware, handler.GetMyProfile)
 	app.Put("/profile", authMiddleware, handler.UpdateMyProfile)
 	app.Get("/limits", authMiddleware, handler.GetMyLimits)

@@ -54,7 +54,7 @@ func (p *PartnerHandler) CheckLimit(c *fiber.Ctx) error {
 
 func (h *PartnerHandler) CreateTransaction(c *fiber.Ctx) error {
 	// 1. Parse request body (JSON)
-	var req dto.Transaction
+	var req dto.CreateTransactionRequest
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse request body"})
 	}
