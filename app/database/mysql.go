@@ -1,6 +1,7 @@
-package infra
+package database
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -130,8 +131,8 @@ func ConnectWithRetry(config *DatabaseConfig, maxRetries int, retryDelay time.Du
 }
 
 // Close closes the database connection
-func Close(db *gorm.DB) error {
-	sqlDB, err := db.DB()
+func Close(db *gorm.DB, ctx context.Context) error {
+	sqlDB, err := db.WithContext(ctx).DB()
 	if err != nil {
 		return fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}
@@ -140,8 +141,8 @@ func Close(db *gorm.DB) error {
 }
 
 // Ping checks if database connection is alive
-func Ping(db *gorm.DB) error {
-	sqlDB, err := db.DB()
+func Ping(db *gorm.DB, ctx context.Context) error {
+	sqlDB, err := db.WithContext(ctx).DB()
 	if err != nil {
 		return fmt.Errorf("failed to get underlying sql.DB: %w", err)
 	}

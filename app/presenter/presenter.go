@@ -98,9 +98,33 @@ func NewPresenter(
 	cloudinaryService := service.NewCloudinaryService(cld)
 
 	// Handler
-	adminHandler := handler.NewAdminHandler(adminService)
-	partnerHandler := handler.NewPartnerHandler(partnerService)
-	profileHandler := handler.NewProfileHandler(profileService, cloudinaryService)
+	adminHandlerMeter := tel.MeterProvider.Meter("admin-handler-meter")
+	adminHandlerTracer := tel.TracerProvider.Tracer("admin-handler-trace")
+	adminHandler := handler.NewAdminHandler(
+		adminService,
+		adminHandlerMeter,
+		adminHandlerTracer,
+		tel.Log,
+	)
+
+	partnerHandlerMeter := tel.MeterProvider.Meter("partner-handler-meter")
+	partnerHandlerTracer := tel.TracerProvider.Tracer("partner-handler-trace")
+	partnerHandler := handler.NewPartnerHandler(
+		partnerService,
+		partnerHandlerMeter,
+		partnerHandlerTracer,
+		tel.Log,
+	)
+
+	profileHandlerMeter := tel.MeterProvider.Meter("profile-handler-meter")
+	profileHandlerTracer := tel.TracerProvider.Tracer("profile-handler-trace")
+	profileHandler := handler.NewProfileHandler(
+		profileService,
+		cloudinaryService,
+		profileHandlerMeter,
+		profileHandlerTracer,
+		tel.Log,
+	)
 
 	return Presenter{
 		AdminPresenter:   adminHandler,

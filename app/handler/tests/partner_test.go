@@ -12,20 +12,28 @@ import (
 	"github.com/fazamuttaqien/multifinance/handler"
 	"github.com/fazamuttaqien/multifinance/helper/common"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel"
+	"go.uber.org/zap"
 )
 
 func TestPartnerHandler_CheckLimit(t *testing.T) {
 	// Arrange
-	mockService := &mockPartnerService{}
-	handler := handler.NewPartnerHandler(mockService)
+	mockPartnerService := &mockPartnerService{}
+	handler := handler.NewPartnerHandler(
+		mockPartnerService,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
+
 	app := setupPartnerApp(handler)
 
 	validBody := `{"customer_nik": "1234567890123456", "tenor_months": 6, "transaction_amount": 5000}`
 
 	t.Run("Success - Limit Approved", func(t *testing.T) {
 		// Konfigurasi mock
-		mockService.MockCheckLimitResult = &dto.CheckLimitResponse{Status: "approved", Message: "Limit is sufficient."}
-		mockService.MockError = nil
+		mockPartnerService.MockCheckLimitResult = &dto.CheckLimitResponse{Status: "approved", Message: "Limit is sufficient."}
+		mockPartnerService.MockError = nil
 
 		req := httptest.NewRequest(http.MethodPost, "/partners/check-limit", strings.NewReader(validBody))
 		req.Header.Set("Content-Type", "application/json")
@@ -44,8 +52,8 @@ func TestPartnerHandler_CheckLimit(t *testing.T) {
 
 	t.Run("Success - Limit Rejected", func(t *testing.T) {
 		// Konfigurasi mock
-		mockService.MockCheckLimitResult = &dto.CheckLimitResponse{Status: "rejected", Message: "Insufficient limit."}
-		mockService.MockError = nil
+		mockPartnerService.MockCheckLimitResult = &dto.CheckLimitResponse{Status: "rejected", Message: "Insufficient limit."}
+		mockPartnerService.MockError = nil
 
 		req := httptest.NewRequest(http.MethodPost, "/partners/check-limit", strings.NewReader(validBody))
 		req.Header.Set("Content-Type", "application/json")
@@ -64,8 +72,8 @@ func TestPartnerHandler_CheckLimit(t *testing.T) {
 
 	t.Run("Failure - Customer Not Found", func(t *testing.T) {
 		// Konfigurasi mock
-		mockService.MockCheckLimitResult = nil
-		mockService.MockError = common.ErrCustomerNotFound
+		mockPartnerService.MockCheckLimitResult = nil
+		mockPartnerService.MockError = common.ErrCustomerNotFound
 
 		req := httptest.NewRequest(http.MethodPost, "/partners/check-limit", strings.NewReader(validBody))
 		req.Header.Set("Content-Type", "application/json")
@@ -95,16 +103,22 @@ func TestPartnerHandler_CheckLimit(t *testing.T) {
 
 func TestPartnerHandler_CreateTransaction(t *testing.T) {
 	// Arrange
-	mockService := &mockPartnerService{}
-	handler := handler.NewPartnerHandler(mockService)
+	mockPartnerService := &mockPartnerService{}
+	handler := handler.NewPartnerHandler(
+		mockPartnerService,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
+
 	app := setupPartnerApp(handler)
 
 	validBody := `{"customer_nik": "1234567890123456", "tenor_months": 6, "asset_name": "Laptop", "otr_amount": 10000, "admin_fee": 500}`
 
 	t.Run("Success - Transaction Created", func(t *testing.T) {
 		// Konfigurasi mock
-		mockService.MockCreateTransactionResult = &domain.Transaction{ID: 1, AssetName: "Laptop"}
-		mockService.MockError = nil
+		mockPartnerService.MockCreateTransactionResult = &domain.Transaction{ID: 1, AssetName: "Laptop"}
+		mockPartnerService.MockError = nil
 
 		req := httptest.NewRequest(http.MethodPost, "/partners/transactions", strings.NewReader(validBody))
 		req.Header.Set("Content-Type", "application/json")
@@ -123,8 +137,8 @@ func TestPartnerHandler_CreateTransaction(t *testing.T) {
 
 	t.Run("Failure - Insufficient Limit", func(t *testing.T) {
 		// Konfigurasi mock
-		mockService.MockCreateTransactionResult = nil
-		mockService.MockError = common.ErrInsufficientLimit
+		mockPartnerService.MockCreateTransactionResult = nil
+		mockPartnerService.MockError = common.ErrInsufficientLimit
 
 		req := httptest.NewRequest(http.MethodPost, "/partners/transactions", strings.NewReader(validBody))
 		req.Header.Set("Content-Type", "application/json")
@@ -144,8 +158,8 @@ func TestPartnerHandler_CreateTransaction(t *testing.T) {
 
 	t.Run("Failure - Customer Not Found", func(t *testing.T) {
 		// Konfigurasi mock
-		mockService.MockCreateTransactionResult = nil
-		mockService.MockError = common.ErrCustomerNotFound
+		mockPartnerService.MockCreateTransactionResult = nil
+		mockPartnerService.MockError = common.ErrCustomerNotFound
 
 		req := httptest.NewRequest(http.MethodPost, "/partners/transactions", strings.NewReader(validBody))
 		req.Header.Set("Content-Type", "application/json")

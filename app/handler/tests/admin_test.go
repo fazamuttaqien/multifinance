@@ -11,21 +11,29 @@ import (
 	"github.com/fazamuttaqien/multifinance/handler"
 	"github.com/fazamuttaqien/multifinance/helper/common"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel"
+	"go.uber.org/zap"
 )
 
 func TestAdminHandler_ListCustomers(t *testing.T) {
 	// Arrange
-	mockService := &mockAdminService{}
-	handler := handler.NewAdminHandler(mockService)
+	mockAdminService := &mockAdminService{}
+	handler := handler.NewAdminHandler(
+		mockAdminService,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
+
 	app := setupAdminApp(handler)
 
 	t.Run("Success", func(t *testing.T) {
 		// Konfigurasi mock
-		mockService.MockListCustomersResult = &domain.Paginated{
+		mockAdminService.MockListCustomersResult = &domain.Paginated{
 			Data:  []domain.Customer{{ID: 2}},
 			Total: 1, Page: 1, Limit: 10, TotalPages: 1,
 		}
-		mockService.MockError = nil
+		mockAdminService.MockError = nil
 
 		req := httptest.NewRequest(http.MethodGet, "/admin/customers?status=PENDING", nil)
 
@@ -40,14 +48,20 @@ func TestAdminHandler_ListCustomers(t *testing.T) {
 
 func TestAdminHandler_GetCustomerByID(t *testing.T) {
 	// Arrange
-	mockService := &mockAdminService{}
-	handler := handler.NewAdminHandler(mockService)
+	mockAdminService := &mockAdminService{}
+	handler := handler.NewAdminHandler(
+		mockAdminService,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
+
 	app := setupAdminApp(handler)
 
 	t.Run("Success", func(t *testing.T) {
 		// Konfigurasi mock
-		mockService.MockGetCustomerByIDResult = &domain.Customer{ID: 2, FullName: "Test Customer"}
-		mockService.MockError = nil
+		mockAdminService.MockGetCustomerByIDResult = &domain.Customer{ID: 2, FullName: "Test Customer"}
+		mockAdminService.MockError = nil
 
 		req := httptest.NewRequest(http.MethodGet, "/admin/customers/2", nil)
 
@@ -64,8 +78,8 @@ func TestAdminHandler_GetCustomerByID(t *testing.T) {
 
 	t.Run("Customer Not Found", func(t *testing.T) {
 		// Konfigurasi mock
-		mockService.MockGetCustomerByIDResult = nil
-		mockService.MockError = common.ErrCustomerNotFound // Gunakan error yang didefinisikan
+		mockAdminService.MockGetCustomerByIDResult = nil
+		mockAdminService.MockError = common.ErrCustomerNotFound // Gunakan error yang didefinisikan
 
 		req := httptest.NewRequest(http.MethodGet, "/admin/customers/99", nil)
 
@@ -91,12 +105,18 @@ func TestAdminHandler_GetCustomerByID(t *testing.T) {
 
 func TestAdminHandler_VerifyCustomer(t *testing.T) {
 	// Arrange
-	mockService := &mockAdminService{}
-	handler := handler.NewAdminHandler(mockService)
+	mockAdminService := &mockAdminService{}
+	handler := handler.NewAdminHandler(
+		mockAdminService,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
+
 	app := setupAdminApp(handler)
 
 	t.Run("Success", func(t *testing.T) {
-		mockService.MockError = nil
+		mockAdminService.MockError = nil
 
 		body := `{"status": "VERIFIED"}`
 		req := httptest.NewRequest(http.MethodPost, "/admin/customers/2/verify", strings.NewReader(body))
@@ -127,12 +147,18 @@ func TestAdminHandler_VerifyCustomer(t *testing.T) {
 
 func TestAdminHandler_SetLimits(t *testing.T) {
 	// Arrange
-	mockService := &mockAdminService{}
-	handler := handler.NewAdminHandler(mockService)
+	mockAdminService := &mockAdminService{}
+	handler := handler.NewAdminHandler(
+		mockAdminService,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
+
 	app := setupAdminApp(handler)
 
 	t.Run("Success", func(t *testing.T) {
-		mockService.MockError = nil
+		mockAdminService.MockError = nil
 
 		body := `{"limits": [{"tenor_months": 3, "limit_amount": 1000}]}`
 		req := httptest.NewRequest(http.MethodPost, "/admin/customers/2/limits", strings.NewReader(body))
@@ -147,7 +173,7 @@ func TestAdminHandler_SetLimits(t *testing.T) {
 	})
 
 	t.Run("Service returns Not Found", func(t *testing.T) {
-		mockService.MockError = common.ErrTenorNotFound // Atau ErrCustomerNotFound
+		mockAdminService.MockError = common.ErrTenorNotFound // Atau ErrCustomerNotFound
 
 		body := `{"limits": [{"tenor_months": 99, "limit_amount": 1000}]}` // Tenor 99 tidak ada
 		req := httptest.NewRequest(http.MethodPost, "/admin/customers/2/limits", strings.NewReader(body))

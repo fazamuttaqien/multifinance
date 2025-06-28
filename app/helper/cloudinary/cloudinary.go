@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/cloudinary/cloudinary-go/v2"
+	"github.com/fazamuttaqien/multifinance/config"
 )
 
 // CloudinaryConfig holds Cloudinary configuration
@@ -28,8 +29,12 @@ type UploadResponse struct {
 }
 
 // InitCloudinary creates a new Cloudinary service
-func InitCloudinary(config CloudinaryConfig) (*cloudinary.Cloudinary, error) {
-	cld, err := cloudinary.NewFromParams(config.CloudName, config.APIKey, config.APISecret)
+func InitCloudinary(cfg *config.Config) (*cloudinary.Cloudinary, error) {
+	cld, err := cloudinary.NewFromParams(
+		cfg.CLOUDINARY_CLOUD,
+		cfg.CLOUDINARY_API_KEY,
+		cfg.CLOUDINARY_API_SECRET,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize Cloudinary: %w", err)
 	}

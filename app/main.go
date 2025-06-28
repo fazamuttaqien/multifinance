@@ -4,19 +4,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"log/slog"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/fazamuttaqien/multifinance/config"
+	"github.com/fazamuttaqien/multifinance/database"
 	"github.com/fazamuttaqien/multifinance/helper/cloudinary"
-	"github.com/fazamuttaqien/multifinance/infra"
 	"github.com/fazamuttaqien/multifinance/model"
 	"github.com/fazamuttaqien/multifinance/presenter"
 	"github.com/fazamuttaqien/multifinance/router"
 	"github.com/fazamuttaqien/multifinance/telemetry"
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -25,9 +28,9 @@ func main() {
 	slog.Info("Starting application setup...")
 
 	ctx := context.Background()
-	
+
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using system environment variables")
+		slog.Error("No .env file found, using system environment variables", "error", err)
 	}
 
 	cfg, err := config.LoadConfig()
@@ -40,48 +43,107 @@ func main() {
 		panic(fmt.Sprintf("Failed to initialize monitoring: %v", err))
 	}
 
-	db, err := infra.InitializeDatabase()
+	db, err := database.InitializeDatabase()
 	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		slog.Error("Failed to initialize database", "error", err)
+		os.Exit(1)
 	}
-	defer infra.Close(db)
+
+	defer func() {
+		shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancelShutdown()
+
+		zap.L().Info("Closing MySQL Connection...")
+		if err := database.Close(db, shutdownCtx); err != nil {
+			zap.L().Error("Error disconnecting from MySQL", zap.Error(err))
+		} else {
+			zap.L().Info("Disconnected from MySQL.")
+		}
+
+		zap.L().Info("Shutting down monitoring...")
+		if err := tel.Shutdown(shutdownCtx); err != nil {
+			zap.L().Error("Error during monitoring shutdown", zap.Error(err))
+		} else {
+			zap.L().Info("Monitoring shutdown complete.")
+		}
+	}()
 
 	if err := model.AutoMigrate(db); err != nil {
-		log.Fatalf("Failed to migrate database: %v", err)
+		slog.Error("Failed to migrate database", "error", err)
+		os.Exit(1)
 	}
-	log.Println("Database migration completed!")
+	slog.Info("Database migration completed!")
 
-	seedTenors(db)
-	seedAdmin(db)
+	SeedTenors(db)
+	SeedAdmin(db)
 
-	infra.EnableDebugMode(db)
+	database.EnableDebugMode(db)
 
-	if err := infra.Ping(db); err != nil {
-		log.Fatalf("Database ping failed: %v", err)
+	if err := database.Ping(db, ctx); err != nil {
+		slog.Error("Database ping failed", "error", err)
+		os.Exit(1)
 	}
-	log.Println("Database connection successful!")
+	slog.Info("Database connection successful!")
 
-	stats := infra.GetStats(db)
-	log.Printf("Database stats: %+v", stats)
+	stats := database.GetStats(db)
+	slog.Info("Database stats:", "stats", stats)
 
-	cld, err := cloudinary.InitCloudinary(cloudinary.CloudinaryConfig{
-		CloudName: os.Getenv("CLOUDINARY_CLOUD_NAME"),
-		APIKey:    os.Getenv("CLOUDINARY_API_KEY"),
-		APISecret: os.Getenv("CLOUDINARY_API_SECRET"),
-	})
+	cld, err := cloudinary.InitCloudinary(cfg)
 	if err != nil {
-		log.Fatal("Failed to initialize Cloudinary service:", err)
+		slog.Error("Failed to initialize Cloudinary service:", "error", err)
+		os.Exit(1)
 	}
 
 	presenter := presenter.NewPresenter(db, cld, tel)
-	router := router.NewRouter(presenter, db)
+	router := router.NewRouter(presenter, db, tel, cfg)
 
-	port := os.Getenv("SERVER_PORT")
-	if port == "" {
-		port = "3000"
+	addr := ":" + cfg.SERVER_PORT
+
+	// --- Jalankan Server & Handle Graceful Shutdown ---
+
+	// Channel untuk listen error dari app.Listen
+	listenErr := make(chan error, 1)
+
+	// Jalankan server di goroutine
+	go func() {
+		zap.L().Info("Server starting", zap.String("address", addr))
+		if err := router.Listen(addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			listenErr <- err
+		} else {
+			listenErr <- nil
+		}
+	}()
+
+	// Channel untuk sinyal shutdown OS
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
+
+	// Blokir sampai menerima sinyal shutdown atau error dari Listen
+	select {
+	case sig := <-shutdown:
+		zap.L().Info("Received shutdown signal", zap.String("signal", sig.String()))
+	case err := <-listenErr:
+		if err != nil {
+			zap.L().Error("Server listen error", zap.Error(err))
+			// Mungkin perlu exit atau logic lain jika Listen gagal start
+			os.Exit(1)
+		}
 	}
-	log.Printf("Server starting on port %s", port)
-	log.Fatal(router.Listen(":" + port))
+
+	// Mulai proses graceful shutdown
+	zap.L().Info("Starting graceful shutdown...")
+	shutdownTimeout := 10 * time.Second
+	if err := router.ShutdownWithTimeout(shutdownTimeout); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			zap.L().Warn("Server shutdown timed out", zap.Duration("timeout", shutdownTimeout))
+		} else {
+			zap.L().Error("Server shutdown error", zap.Error(err))
+		}
+	} else {
+		zap.L().Info("Server gracefully stopped.")
+	}
+
+	zap.L().Info("Application shutdown complete.")
 }
 
 const (
@@ -89,14 +151,14 @@ const (
 	AdminNIK string = "1010010110100101"
 )
 
-func seedAdmin(db *gorm.DB) {
-	log.Println("Checking for admin user...")
+func SeedAdmin(db *gorm.DB) {
+	slog.Info("Checking for admin user...")
 
 	var adminUser model.Customer
 	err := db.First(&adminUser, AdminID).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Println("Admin user not found, creating one...")
+		slog.Info("Admin user not found, creating one...")
 
 		newAdmin := model.Customer{
 			ID:                 AdminID,
@@ -112,18 +174,20 @@ func seedAdmin(db *gorm.DB) {
 		}
 
 		if err := db.Create(&newAdmin).Error; err != nil {
-			log.Fatalf("Failed to seed admin user: %v", err)
+			slog.Error("Failed to seed admin user", "error", err)
+			os.Exit(1)
 		}
-		log.Println("Admin user created successfully.")
+		slog.Info("Admin user created successfully.")
 	} else if err != nil {
-		log.Fatalf("Error checking for admin user: %v", err)
+		slog.Error("Error checking for admin user", "error", err)
+		os.Exit(1)
 	} else {
-		log.Println("Admin user already exists.")
+		slog.Info("Admin user already exists.")
 	}
 }
 
-func seedTenors(db *gorm.DB) {
-	log.Println("Seeding master tenors...")
+func SeedTenors(db *gorm.DB) {
+	slog.Info("Seeding master tenors...")
 
 	tenors := []model.Tenor{
 		{ID: 1, DurationMonths: 1, Description: "1 Months"},
@@ -135,14 +199,13 @@ func seedTenors(db *gorm.DB) {
 		{ID: 7, DurationMonths: 24, Description: "24 Months"},
 	}
 
-	// Menggunakan OnConflict untuk mencegah error jika data sudah ada (UPSERT)
-	// Jika ada konflik pada kolom 'duration_months', tidak melakukan apa-apa.
 	if err := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "duration_months"}},
 		DoNothing: true,
 	}).Create(&tenors).Error; err != nil {
-		log.Fatalf("Failed to seed tenors: %v", err)
+		slog.Error("Failed to seed tenors", "error", err)
+		os.Exit(1)
 	}
 
-	log.Println("Master tenors seeded successfully.")
+	slog.Info("Master tenors seeded successfully.")
 }

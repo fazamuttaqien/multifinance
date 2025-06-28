@@ -12,6 +12,8 @@ import (
 	"github.com/fazamuttaqien/multifinance/dto"
 	"github.com/fazamuttaqien/multifinance/handler"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel"
+	"go.uber.org/zap"
 )
 
 func TestProfileHandler_Register(t *testing.T) {
@@ -19,7 +21,13 @@ func TestProfileHandler_Register(t *testing.T) {
 	mockProfileService := &mockProfileService{}
 	mockCloudinary := &mockCloudinaryService{}
 
-	handler := handler.NewProfileHandler(mockProfileService, mockCloudinary)
+	handler := handler.NewProfileHandler(
+		mockProfileService,
+		mockCloudinary,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
 
 	app := setupProfileApp(handler)
 
@@ -92,13 +100,18 @@ func TestProfileHandler_Register(t *testing.T) {
 
 func TestProfileHandler_GetMyProfile(t *testing.T) {
 	// Arrange
-	mockService := &mockProfileService{}
-	handler := handler.NewProfileHandler(mockService, nil)
+	mockProfileService := &mockProfileService{}
+	handler := handler.NewProfileHandler(
+		mockProfileService, nil,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
 	app := setupProfileApp(handler)
 
 	t.Run("Success", func(t *testing.T) {
 		// Konfigurasi mock
-		mockService.MockGetMyProfileResult = &domain.Customer{ID: 2, FullName: "Authenticated User"}
+		mockProfileService.MockGetMyProfileResult = &domain.Customer{ID: 2, FullName: "Authenticated User"}
 
 		req := httptest.NewRequest(http.MethodGet, "/me/profile", nil)
 
@@ -118,13 +131,19 @@ func TestProfileHandler_GetMyProfile(t *testing.T) {
 
 func TestProfileHandler_UpdateMyProfile(t *testing.T) {
 	// Arrange
-	mockService := &mockProfileService{}
-	handler := handler.NewProfileHandler(mockService, nil)
+	mockProfileService := &mockProfileService{}
+	handler := handler.NewProfileHandler(
+		mockProfileService, nil,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
+
 	app := setupProfileApp(handler)
 
 	t.Run("Success", func(t *testing.T) {
 		// Konfigurasi mock
-		mockService.MockError = nil
+		mockProfileService.MockError = nil
 
 		// Buat body request
 		updateBody := `{"full_name": "Updated Name", "salary": 12000000}`
@@ -145,8 +164,14 @@ func TestProfileHandler_UpdateMyProfile(t *testing.T) {
 
 func TestProfileHandler_GetMyLimits(t *testing.T) {
 	// Arrange
-	mockService := &mockProfileService{}
-	handler := handler.NewProfileHandler(mockService, nil)
+	mockProfileService := &mockProfileService{}
+	handler := handler.NewProfileHandler(
+		mockProfileService, nil,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
+
 	app := setupProfileApp(handler)
 
 	t.Run("Success", func(t *testing.T) {
@@ -165,8 +190,8 @@ func TestProfileHandler_GetMyLimits(t *testing.T) {
 				RemainingLimit: 2000000,
 			},
 		}
-		mockService.MockGetMyLimitsResult = expectedLimits
-		mockService.MockError = nil
+		mockProfileService.MockGetMyLimitsResult = expectedLimits
+		mockProfileService.MockError = nil
 
 		// Buat request HTTP
 		req := httptest.NewRequest(http.MethodGet, "/me/limits", nil)
@@ -192,8 +217,8 @@ func TestProfileHandler_GetMyLimits(t *testing.T) {
 
 	t.Run("Service returns error", func(t *testing.T) {
 		// Konfigurasi mock untuk mengembalikan error
-		mockService.MockGetMyLimitsResult = nil
-		mockService.MockError = errors.New("database connection failed")
+		mockProfileService.MockGetMyLimitsResult = nil
+		mockProfileService.MockError = errors.New("database connection failed")
 
 		req := httptest.NewRequest(http.MethodGet, "/me/limits", nil)
 
@@ -212,8 +237,14 @@ func TestProfileHandler_GetMyLimits(t *testing.T) {
 
 func TestProfileHandler_GetMyTransactions(t *testing.T) {
 	// Arrange
-	mockService := &mockProfileService{}
-	handler := handler.NewProfileHandler(mockService, nil)
+	mockProfileService := &mockProfileService{}
+	handler := handler.NewProfileHandler(
+		mockProfileService, nil,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
+
 	app := setupProfileApp(handler)
 
 	t.Run("Success with query parameters", func(t *testing.T) {
@@ -227,8 +258,8 @@ func TestProfileHandler_GetMyTransactions(t *testing.T) {
 			Limit:      5,
 			TotalPages: 1,
 		}
-		mockService.MockGetMyTransactionsResult = expectedResponse
-		mockService.MockError = nil
+		mockProfileService.MockGetMyTransactionsResult = expectedResponse
+		mockProfileService.MockError = nil
 
 		// Buat request dengan query params
 		req := httptest.NewRequest(http.MethodGet, "/me/transactions?status=ACTIVE&page=1&limit=5", nil)
@@ -262,14 +293,14 @@ func TestProfileHandler_GetMyTransactions(t *testing.T) {
 
 	t.Run("Success without query parameters (uses defaults)", func(t *testing.T) {
 		// Konfigurasi mock
-		mockService.MockGetMyTransactionsResult = &domain.Paginated{
+		mockProfileService.MockGetMyTransactionsResult = &domain.Paginated{
 			Data:       []domain.Transaction{},
 			Total:      0,
 			Page:       1,
 			Limit:      10, // Ini adalah default yang disetel di handler
 			TotalPages: 0,
 		}
-		mockService.MockError = nil
+		mockProfileService.MockError = nil
 
 		req := httptest.NewRequest(http.MethodGet, "/me/transactions", nil)
 
