@@ -38,8 +38,7 @@ func (h *AdminHandler) GetCustomerByID(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid customer ID"})
 	}
 
-	// Kita bisa reuse service GetProfile
-	customer, err := h.adminService.GetProfile(c.Context(), customerID)
+	customer, err := h.adminService.GetCustomerByNIK(c.Context(), customerID)
 	if err != nil {
 		if errors.Is(err, common.ErrCustomerNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})

@@ -26,6 +26,6 @@ type LimitRepository interface {
 
 type TransactionRepository interface {
 	SumActivePrincipalByCustomerIDAndTenorID(ctx context.Context, customerID uint64, tenorID uint) (float64, error)
-	CreateTransaction(ctx context.Context, tx domain.Transaction) error
+	CreateTransaction(ctx context.Context, tx *domain.Transaction) error
 	FindPaginatedByCustomerID(ctx context.Context, customerID uint64, params domain.Params) ([]domain.Transaction, int64, error)
 }

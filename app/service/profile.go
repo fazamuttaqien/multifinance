@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"time"
 
 	"github.com/fazamuttaqien/multifinance/domain"
 	"github.com/fazamuttaqien/multifinance/dto"
@@ -21,99 +20,6 @@ type profileService struct {
 	limitRepository       repository.LimitRepository
 	tenorRepository       repository.TenorRepository
 	transactionRepository repository.TransactionRepository
-}
-
-// CreateTransaction implements ProfileUsecases.
-func (p *profileService) CreateTransaction(ctx context.Context, req dto.Transaction) (*domain.Transaction, error) {
-	// Start Transaction
-	tx := p.db.WithContext(ctx).Begin()
-	if tx.Error != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", tx.Error)
-	}
-	defer tx.Rollback()
-
-	// 1. Mendapatkan Customer berdasarkan NIK dan KUNCI barisnya untuk mencegah race condition
-	customerTx := repository.NewCustomerRepository(tx)
-	lockedCustomer, err := customerTx.FindByNIK(ctx, req.NIK, true)
-	if err != nil {
-		return nil, fmt.Errorf("error finding customer: %w", err)
-	}
-	if lockedCustomer == nil {
-		return nil, common.ErrCustomerNotFound
-	}
-
-	// Memastikan costumer sudah terverifikasi
-	if lockedCustomer.VerificationStatus != domain.VerificationVerified {
-		return nil, fmt.Errorf("customer with NIK %s is not verified", req.NIK)
-	}
-
-	// 2. Mendapatkan Tenor
-	tenorTx := repository.NewTenorRepository(tx)
-	tenor, err := tenorTx.FindByDuration(ctx, req.TenorMonths)
-	if err != nil {
-		return nil, err
-	}
-	if tenor == nil {
-		return nil, common.ErrTenorNotFound
-	}
-
-	// 3. Validasi ulang limit di dalam transanksi yang terkunci
-	limitTx := repository.NewLimitRepository(tx)
-	limit, err := limitTx.FindByCustomerIDAndTenorID(ctx, lockedCustomer.ID, tenor.ID)
-	if err != nil {
-		return nil, err
-	}
-	if limit == nil {
-		return nil, common.ErrLimitNotSet
-	}
-	totalLimit := limit.LimitAmount
-
-	transactionTx := repository.NewTransactionRepository(tx)
-	usedAmount, err := transactionTx.SumActivePrincipalByCustomerIDAndTenorID(ctx, lockedCustomer.ID, tenor.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	remainingLimit := totalLimit - usedAmount
-	transactionPrincipal := req.OTRAmount + req.AdminFee
-
-	if remainingLimit < transactionPrincipal {
-		return nil, common.ErrInsufficientLimit
-	}
-
-	// 4. Hitung komponen finansial lainnya (business logic)
-	// Aturan bunga sederhana: 2% dari OTR per bulan tenor
-	totalInterest := req.OTRAmount * 0.02 * float64(req.TenorMonths)
-	totalInstallment := transactionPrincipal + totalInterest
-
-	// 5. Generate Nomor Kontrak
-	contractNumber := fmt.Sprintf("KTR-%s-%d", time.Now().Format("20060102"), time.Now().UnixNano()%100000)
-
-	// 6. Buat entitas Transaction baru
-	newTransaction := domain.Transaction{
-		ContractNumber:         contractNumber,
-		CustomerID:             lockedCustomer.ID,
-		TenorID:                tenor.ID,
-		AssetName:              req.AssetName,
-		OTRAmount:              req.OTRAmount,
-		AdminFee:               req.AdminFee,
-		TotalInterest:          totalInterest,
-		TotalInstallmentAmount: totalInstallment,
-		Status:                 domain.TransactionActive, // Langsung aktif
-	}
-
-	// 7. Simpan transaksi baru ke DB
-	repoTx := repository.NewTransactionRepository(tx)
-	if err := repoTx.CreateTransaction(ctx, newTransaction); err != nil {
-		return nil, fmt.Errorf("failed to create transaction record: %w", err)
-	}
-
-	// 8. Jika semua berhasil, commit transaksi
-	if err := tx.Commit().Error; err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return &newTransaction, nil
 }
 
 // Register implements ProfileUsecases.
@@ -209,8 +115,8 @@ func (p *profileService) GetMyTransactions(ctx context.Context, customerID uint6
 	}, nil
 }
 
-// GetProfile implements ProfileUsecases.
-func (p *profileService) GetProfile(ctx context.Context, customerID uint64) (*domain.Customer, error) {
+// GetMyProfile implements ProfileUsecases.
+func (p *profileService) GetMyProfile(ctx context.Context, customerID uint64) (*domain.Customer, error) {
 	customer, err := p.customerRepository.FindByID(ctx, customerID)
 	if err != nil {
 		return nil, err

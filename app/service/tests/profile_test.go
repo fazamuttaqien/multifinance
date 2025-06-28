@@ -1,0 +1,177 @@
+package service_test
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/fazamuttaqien/multifinance/domain"
+	"github.com/fazamuttaqien/multifinance/dto"
+	"github.com/fazamuttaqien/multifinance/helper/common"
+	"github.com/fazamuttaqien/multifinance/repository"
+	"github.com/fazamuttaqien/multifinance/service"
+	"github.com/stretchr/testify/assert"
+)
+
+// UNIT TESTS
+func TestRegister(t *testing.T) {
+	// Arrange
+	mockCustomerRepository := &mockCustomerRepository{}
+	mockMediaRepository := &mockMediaRepository{}
+
+	service := service.NewProfileService(nil, mockCustomerRepository, nil, nil, nil)
+
+	birthDate, _ := time.Parse("2006-01-02", "2000-01-01")
+	req := domain.Customer{
+		NIK: "1234567890123456", FullName: "Test User", BirthDate: birthDate,
+	}
+
+	t.Run("Success", func(t *testing.T) {
+		// Konfigurasi mock
+		mockCustomerRepository.MockFindByIDData = nil // NIK tidak ditemukan
+		mockMediaRepository.MockUploadImageURL = "http://cloudinary.com/image.jpg"
+
+		// Act
+		customer, err := service.Register(context.Background(), &req)
+
+		// Assert
+		assert.NoError(t, err)
+		assert.NotNil(t, customer)
+		assert.Equal(t, req.NIK, customer.NIK)
+		assert.Equal(t, domain.VerificationPending, customer.VerificationStatus)
+		assert.NotNil(t, mockCustomerRepository.CreateCalledWith)
+	})
+
+	t.Run("NIK Exists", func(t *testing.T) {
+		// Konfigurasi mock
+		mockCustomerRepository.MockFindByNIKData = &domain.Customer{} // NIK ditemukan
+
+		// Act
+		_, err := service.Register(context.Background(), &req)
+
+		// Assert
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, common.ErrNIKExists)
+	})
+
+	t.Run("Upload KTP Fails", func(t *testing.T) {
+		// Konfigurasi mock
+		mockCustomerRepository.MockFindByNIKData = nil
+		mockMediaRepository.MockUploadImageError = errors.New("upload failed")
+
+		// Act
+		_, err := service.Register(context.Background(), &req)
+
+		// Assert
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to upload")
+	})
+}
+
+func TestGetMyLimits(t *testing.T) {
+	// Arrange
+	mockLimitRepo := &mockLimitRepository{}
+	mockTenorRepo := &mockTenorRepository{}
+	mockTxnRepo := &mockTransactionRepository{}
+	service := service.NewProfileService(nil, nil, mockLimitRepo, mockTenorRepo, mockTxnRepo)
+
+	t.Run("Success with calculated remaining limit", func(t *testing.T) {
+		// Konfigurasi mock
+		customerID := uint64(10)
+		mockLimitRepo.MockFindAllByCustomerIDData = []domain.CustomerLimit{
+			{CustomerID: customerID, TenorID: 1, LimitAmount: 1000},
+			{CustomerID: customerID, TenorID: 2, LimitAmount: 5000},
+		}
+		mockTenorRepo.MockFindAllData = []domain.Tenor{
+			{ID: 1, DurationMonths: 3},
+			{ID: 2, DurationMonths: 6},
+		}
+		mockTxnRepo.MockSumActiveData = 250.0
+
+		// Act
+		limits, err := service.GetMyLimits(context.Background(), customerID)
+
+		// Assert
+		assert.NoError(t, err)
+		assert.Len(t, limits, 2)
+		// Cek item pertama
+		assert.Equal(t, uint8(3), limits[0].TenorMonths)
+		assert.Equal(t, float64(1000), limits[0].LimitAmount)
+		assert.Equal(t, float64(250), limits[0].UsedAmount)
+		assert.Equal(t, float64(750), limits[0].RemainingLimit) // 1000 - 250
+		// Cek item kedua
+		assert.Equal(t, uint8(6), limits[1].TenorMonths)
+		assert.Equal(t, float64(5000), limits[1].LimitAmount)
+		assert.Equal(t, float64(4750), limits[1].RemainingLimit) // 5000 - 250
+	})
+}
+
+func TestGetMyTransactions(t *testing.T) {
+	// Arrange
+	mockTxnRepo := &mockTransactionRepository{}
+	service := NewService(nil, nil, nil, nil, nil, mockTxnRepo)
+
+	t.Run("Success with pagination", func(t *testing.T) {
+		// Konfigurasi mock
+		mockTxnRepo.MockFindPaginatedData = []domain.Transaction{{ID: 1, AssetName: "Laptop"}}
+		mockTxnRepo.MockFindPaginatedTotal = 11 // Total ada 11 data
+
+		params := domain.Params{Page: 2, Limit: 5}
+
+		// Act
+		result, err := service.GetMyTransactions(context.Background(), 10, params)
+
+		// Assert
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, int64(11), result.Total)
+		assert.Equal(t, 2, result.Page)
+		assert.Equal(t, 5, result.Limit)
+		assert.Equal(t, 3, result.TotalPages) // math.Ceil(11 / 5) = 3
+	})
+}
+
+func TestUpdateProfile(t *testing.T) {
+	// Arrange
+	db := setupTestDB(t)
+	customerRepository := repository.NewCustomerRepository(db)
+	service := service.NewProfileService(db, customerRepository, nil, nil, nil)
+
+	// Buat data customer untuk diupdate
+	testCustomer := &domain.Customer{
+		ID: 10, NIK: "333", FullName: "Old Name", Salary: 5000,
+		BirthDate: time.Now(),
+	}
+	db.Create(testCustomer)
+
+	t.Run("Success updating profile", func(t *testing.T) {
+		req := domain.Customer{
+			FullName: "New Name",
+			Salary:   10000,
+		}
+
+		// Act
+		err := service.UpdateProfile(context.Background(), 10, req)
+
+		// Assert
+		assert.NoError(t, err)
+
+		// Cek langsung ke DB in-memory
+		var updatedCustomer domain.Customer
+		db.First(&updatedCustomer, 10)
+		assert.Equal(t, "New Name", updatedCustomer.FullName)
+		assert.Equal(t, float64(10000), updatedCustomer.Salary)
+	})
+
+	t.Run("Fail updating non-existent customer", func(t *testing.T) {
+		req := domain.Customer{FullName: "New Name", Salary: 10000}
+
+		// Act
+		err := service.UpdateProfile(context.Background(), 99, req) // ID 99 tidak ada
+
+		// Assert
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, common.ErrCustomerNotFound)
+	})
+}

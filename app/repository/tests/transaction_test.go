@@ -1,4 +1,4 @@
-package repository
+package repository_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"github.com/fazamuttaqien/multifinance/domain"
 	"github.com/fazamuttaqien/multifinance/helper/common"
 	"github.com/fazamuttaqien/multifinance/model"
+	"github.com/fazamuttaqien/multifinance/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -21,7 +22,7 @@ import (
 type TransactionRepositoryTestSuite struct {
 	suite.Suite
 	db                    *gorm.DB
-	transactionRepository TransactionRepository
+	transactionRepository repository.TransactionRepository
 	ctx                   context.Context
 
 	// Test data
@@ -75,7 +76,7 @@ func (suite *TransactionRepositoryTestSuite) SetupSuite() {
 	require.NoError(suite.T(), err)
 
 	// Initialize repository
-	suite.transactionRepository = NewTransactionRepository(suite.db)
+	suite.transactionRepository = repository.NewTransactionRepository(suite.db)
 }
 
 func (suite *TransactionRepositoryTestSuite) TearDownSuite() {
@@ -151,7 +152,7 @@ func (suite *TransactionRepositoryTestSuite) TestCreateTransaction_Success() {
 	}
 
 	// Act
-	err := suite.transactionRepository.CreateTransaction(suite.ctx, transaction)
+	err := suite.transactionRepository.CreateTransaction(suite.ctx, &transaction)
 
 	// Assert
 	assert.NoError(suite.T(), err)
@@ -514,7 +515,7 @@ func (suite *TransactionRepositoryTestSuite) TestCreateTransaction_ValidationErr
 	}
 
 	// Act
-	err := suite.transactionRepository.CreateTransaction(suite.ctx, transaction)
+	err := suite.transactionRepository.CreateTransaction(suite.ctx, &transaction)
 
 	// Assert
 	// Should return foreign key constraint error
@@ -543,7 +544,7 @@ func BenchmarkTransactionRepository_CreateTransaction(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	repo := NewTransactionRepository(db)
+	repo := repository.NewTransactionRepository(db)
 	ctx := context.Background()
 
 	// Setup test data
@@ -582,7 +583,7 @@ func BenchmarkTransactionRepository_CreateTransaction(b *testing.B) {
 				Status:                 domain.TransactionPending,
 				TransactionDate:        time.Now(),
 			}
-			repo.CreateTransaction(ctx, transaction)
+			repo.CreateTransaction(ctx, &transaction)
 			i++
 		}
 	})
@@ -604,7 +605,7 @@ func BenchmarkTransactionRepository_SumActivePrincipal(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	repo := NewTransactionRepository(db)
+	repo := repository.NewTransactionRepository(db)
 	ctx := context.Background()
 
 	// Setup test data

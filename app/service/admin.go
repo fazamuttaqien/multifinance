@@ -78,8 +78,8 @@ func (a *adminService) SetLimits(ctx context.Context, customerID uint64, req dto
 	return tx.Commit().Error
 }
 
-// GetProfile implements AdminUsecases.
-func (a *adminService) GetProfile(ctx context.Context, customerID uint64) (*domain.Customer, error) {
+// GetCustomerByNIK implements AdminUsecases.
+func (a *adminService) GetCustomerByNIK(ctx context.Context, customerID uint64) (*domain.Customer, error) {
 	customer, err := a.customerRepository.FindByID(ctx, customerID)
 	if err != nil {
 		return nil, err

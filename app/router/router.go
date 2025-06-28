@@ -10,7 +10,6 @@ import (
 
 func NewRouter(presenter presenter.Presenter, db *gorm.DB) *fiber.App {
 
-	// --- Middlewares ---
 	adminAuth := middleware.NewAdminMiddleware(db)
 	customerAuth := middleware.NewCustomerMiddleware(db)
 
@@ -23,7 +22,6 @@ func NewRouter(presenter presenter.Presenter, db *gorm.DB) *fiber.App {
 
 	customersAPI := api.Group("/customers", customerAuth)
 	{
-		customersAPI.Post("/transactions", presenter.ProfilePresenter.CreateTransaction)
 		customersAPI.Get("/profile", presenter.ProfilePresenter.GetMyProfile)
 		customersAPI.Put("/profile", presenter.ProfilePresenter.UpdateMyProfile)
 		customersAPI.Get("/limits", presenter.ProfilePresenter.GetMyLimits)
@@ -37,6 +35,12 @@ func NewRouter(presenter presenter.Presenter, db *gorm.DB) *fiber.App {
 		adminCustomersAPI.Get("/", presenter.AdminPresenter.ListCustomers)
 		adminCustomersAPI.Get("/:customerId", presenter.AdminPresenter.GetCustomerByID)
 		adminCustomersAPI.Post("/:customerId/verify", presenter.AdminPresenter.VerifyCustomer)
+	}
+
+	partnerAPI := api.Group("/partners")
+	{
+		partnerAPI.Post("/transactions", presenter.PartnerPresenter.CreateTransaction)
+		partnerAPI.Post("/check-limit", presenter.PartnerPresenter.CheckLimit)
 	}
 
 	return app

@@ -1,4 +1,4 @@
-package repository
+package repository_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"github.com/fazamuttaqien/multifinance/domain"
 	"github.com/fazamuttaqien/multifinance/helper/common"
 	"github.com/fazamuttaqien/multifinance/model"
+	"github.com/fazamuttaqien/multifinance/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -21,7 +22,7 @@ import (
 type CustomerRepositoryTestSuite struct {
 	suite.Suite
 	db                 *gorm.DB
-	customerRepository CustomerRepository
+	customerRepository repository.CustomerRepository
 	ctx                context.Context
 }
 
@@ -74,7 +75,7 @@ func (suite *CustomerRepositoryTestSuite) SetupSuite() {
 	require.NoError(suite.T(), err)
 
 	// Initialize repository
-	suite.customerRepository = NewCustomerRepository(suite.db)
+	suite.customerRepository = repository.NewCustomerRepository(suite.db)
 }
 
 func (suite *CustomerRepositoryTestSuite) TearDownSuite() {
@@ -435,7 +436,7 @@ func BenchmarkCustomerRepository_Save(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	repo := NewCustomerRepository(db)
+	repo := repository.NewCustomerRepository(db)
 	ctx := context.Background()
 
 	b.ResetTimer()

@@ -4,7 +4,7 @@ import (
 	"github.com/fazamuttaqien/multifinance/domain"
 )
 
-func TransactionFromEntity(data domain.Transaction) Transaction {
+func TransactionFromEntity(data *domain.Transaction) Transaction {
 	return Transaction{
 		ID:                     data.ID,
 		ContractNumber:         data.ContractNumber,

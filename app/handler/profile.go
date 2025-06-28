@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -143,7 +142,7 @@ func (h *ProfileHandler) GetMyProfile(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	customer, err := h.profileService.GetProfile(c.Context(), customerID)
+	customer, err := h.profileService.GetMyProfile(c.Context(), customerID)
 	if err != nil {
 		// ... (error handling seperti sebelumnya)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
@@ -212,37 +211,6 @@ func (h *ProfileHandler) GetMyTransactions(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response)
-}
-
-func (h *ProfileHandler) CreateTransaction(c *fiber.Ctx) error {
-	// 1. Parse request body (JSON)
-	var req dto.Transaction
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse request body"})
-	}
-
-	// 2. Validasi struct request
-	if err := h.validate.Struct(req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Validation failed", "details": err.Error()})
-	}
-
-	// 3. Panggil service
-	createdTx, err := h.profileService.CreateTransaction(c.Context(), req)
-	if err != nil {
-		// Mapping error
-		switch {
-		case errors.Is(err, common.ErrCustomerNotFound), errors.Is(err, common.ErrTenorNotFound):
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
-		case errors.Is(err, common.ErrInsufficientLimit), errors.Is(err, common.ErrLimitNotSet):
-			return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"status": "rejected", "reason": err.Error()})
-		default:
-			log.Printf("Internal server error on CreateTransaction: %v", err)
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "An internal server error occurred"})
-		}
-	}
-
-	// 4. Kirim response sukses
-	return c.Status(fiber.StatusCreated).JSON(createdTx)
 }
 
 // getCustomerIDFromLocals adalah helper untuk mengambil ID customer dari context Fiber

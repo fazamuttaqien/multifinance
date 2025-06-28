@@ -14,13 +14,13 @@ import (
 
 type PartnerHandler struct {
 	partnerService service.PartnerServices
-	validator      *validator.Validate
+	validate       *validator.Validate
 }
 
 func NewPartnerHandler(partnerService service.PartnerServices) *PartnerHandler {
 	return &PartnerHandler{
 		partnerService: partnerService,
-		validator:      validator.New(validator.WithRequiredStructEnabled()),
+		validate:       validator.New(validator.WithRequiredStructEnabled()),
 	}
 }
 
@@ -30,7 +30,7 @@ func (p *PartnerHandler) CheckLimit(c *fiber.Ctx) error {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse request body"})
 	}
 
-	if err := p.validator.Struct(req); err != nil {
+	if err := p.validate.Struct(req); err != nil {
 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
@@ -50,4 +50,35 @@ func (p *PartnerHandler) CheckLimit(c *fiber.Ctx) error {
 	}
 
 	return c.Status(http.StatusOK).JSON(res)
+}
+
+func (h *PartnerHandler) CreateTransaction(c *fiber.Ctx) error {
+	// 1. Parse request body (JSON)
+	var req dto.Transaction
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Cannot parse request body"})
+	}
+
+	// 2. Validasi struct request
+	if err := h.validate.Struct(req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Validation failed", "details": err.Error()})
+	}
+
+	// 3. Panggil service
+	createdTx, err := h.partnerService.CreateTransaction(c.Context(), req)
+	if err != nil {
+		// Mapping error
+		switch {
+		case errors.Is(err, common.ErrCustomerNotFound), errors.Is(err, common.ErrTenorNotFound):
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
+		case errors.Is(err, common.ErrInsufficientLimit), errors.Is(err, common.ErrLimitNotSet):
+			return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"status": "rejected", "reason": err.Error()})
+		default:
+			log.Printf("Internal server error on CreateTransaction: %v", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "An internal server error occurred"})
+		}
+	}
+
+	// 4. Kirim response sukses
+	return c.Status(fiber.StatusCreated).JSON(createdTx)
 }

@@ -21,7 +21,7 @@ func NewPresenter(db *gorm.DB, cloudinaryService *cloudinary.CloudinaryService) 
 	transactionRepository := repository.NewTransactionRepository(db)
 
 	adminService := service.NewAdminService(db, customerRepository)
-	partnerService := service.NewPartnetService(customerRepository, tenorRepository, limitRepository, transactionRepository)
+	partnerService := service.NewPartnerService(db, customerRepository, tenorRepository, limitRepository, transactionRepository)
 	profileService := service.NewProfileService(db, customerRepository, limitRepository, tenorRepository, transactionRepository)
 
 	adminHandler := handler.NewAdminHandler(adminService)
