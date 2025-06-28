@@ -1,24 +1,43 @@
 package main
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"log"
+	"log/slog"
 	"os"
 	"time"
 
+	"github.com/fazamuttaqien/multifinance/config"
 	"github.com/fazamuttaqien/multifinance/helper/cloudinary"
 	"github.com/fazamuttaqien/multifinance/infra"
 	"github.com/fazamuttaqien/multifinance/model"
 	"github.com/fazamuttaqien/multifinance/presenter"
 	"github.com/fazamuttaqien/multifinance/router"
+	"github.com/fazamuttaqien/multifinance/telemetry"
 	"github.com/joho/godotenv"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 func main() {
+	slog.Info("Starting application setup...")
+
+	ctx := context.Background()
+	
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using system environment variables")
+	}
+
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to load configuration: %v", err))
+	}
+
+	tel, err := telemetry.New(ctx, cfg)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to initialize monitoring: %v", err))
 	}
 
 	db, err := infra.InitializeDatabase()
@@ -27,14 +46,12 @@ func main() {
 	}
 	defer infra.Close(db)
 
-	// Auto-migrate models
 	if err := model.AutoMigrate(db); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 	log.Println("Database migration completed!")
 
 	seedTenors(db)
-
 	seedAdmin(db)
 
 	infra.EnableDebugMode(db)
@@ -47,7 +64,7 @@ func main() {
 	stats := infra.GetStats(db)
 	log.Printf("Database stats: %+v", stats)
 
-	cloudinaryService, err := cloudinary.InitCloudinary(cloudinary.CloudinaryConfig{
+	cld, err := cloudinary.InitCloudinary(cloudinary.CloudinaryConfig{
 		CloudName: os.Getenv("CLOUDINARY_CLOUD_NAME"),
 		APIKey:    os.Getenv("CLOUDINARY_API_KEY"),
 		APISecret: os.Getenv("CLOUDINARY_API_SECRET"),
@@ -56,7 +73,7 @@ func main() {
 		log.Fatal("Failed to initialize Cloudinary service:", err)
 	}
 
-	presenter := presenter.NewPresenter(db, cloudinaryService)
+	presenter := presenter.NewPresenter(db, cld, tel)
 	router := router.NewRouter(presenter, db)
 
 	port := os.Getenv("SERVER_PORT")

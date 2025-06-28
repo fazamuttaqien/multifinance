@@ -9,11 +9,10 @@ import (
 	"gorm.io/gorm"
 )
 
-func setupTestDB(t *testing.T) *gorm.DB {
+func SetupTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	assert.NoError(t, err)
 
-	// Jalankan migrasi
 	err = model.AutoMigrate(db)
 	assert.NoError(t, err)
 

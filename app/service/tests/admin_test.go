@@ -21,7 +21,13 @@ func TestListCustomers(t *testing.T) {
 	// Arrange
 	mockRepository := &MockCustomerRepository{}
 	// Kita set db dan repo lain ke nil karena service ini tidak menggunakannya
-	service := service.NewAdminService(nil, mockRepository)
+	service := service.NewAdminService(
+		nil,
+		mockRepository,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
 
 	// Skenario 1: Sukses mendapatkan data
 	t.Run("Success", func(t *testing.T) {
@@ -69,7 +75,13 @@ func TestListCustomers(t *testing.T) {
 func TestGetCustomerByID_Admin(t *testing.T) {
 	// Arrange
 	mockRepository := &MockCustomerRepository{}
-	service := service.NewAdminService(nil, mockRepository)
+	service := service.NewAdminService(
+		nil,
+		mockRepository,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
 
 	// Skenario 1: Customer ditemukan
 	t.Run("Customer Found", func(t *testing.T) {
@@ -107,14 +119,20 @@ func TestGetCustomerByID_Admin(t *testing.T) {
 
 func TestVerifyCustomer(t *testing.T) {
 	// Arrange (menggunakan DB sungguhan, tapi in-memory)
-	db := setupTestDB(t)
+	db := SetupTestDB(t)
 	customerRepository := repository.NewCustomerRepository(
 		db,
 		otel.GetMeterProvider().Meter(""),
 		otel.GetTracerProvider().Tracer(""),
 		zap.L(),
 	)
-	service := service.NewAdminService(db, customerRepository)
+	service := service.NewAdminService(
+		db,
+		customerRepository,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
 
 	// Buat data customer yang PENDING
 	pendingCustomer := &domain.Customer{
@@ -154,15 +172,21 @@ func TestVerifyCustomer(t *testing.T) {
 
 func TestSetLimits(t *testing.T) {
 	// Arrange
-	db := setupTestDB(t)
-	
+	db := SetupTestDB(t)
+
 	customerRepository := repository.NewCustomerRepository(
 		db,
 		otel.GetMeterProvider().Meter(""),
 		otel.GetTracerProvider().Tracer(""),
 		zap.L(),
 	)
-	service := service.NewAdminService(db, customerRepository)
+	service := service.NewAdminService(
+		db,
+		customerRepository,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
 
 	// Buat data customer dan tenor
 	db.Create(&domain.Customer{

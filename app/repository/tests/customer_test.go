@@ -2,84 +2,82 @@ package repository_test
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/fazamuttaqien/multifinance/domain"
+	"github.com/fazamuttaqien/multifinance/helper/common"
 	"github.com/fazamuttaqien/multifinance/model"
 	"github.com/fazamuttaqien/multifinance/repository"
 
-	"github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/wait"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
-	"gorm.io/driver/sqlite"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
 
 type CustomerRepositoryTestSuite struct {
 	suite.Suite
-	db                 *gorm.DB
-	ctx                context.Context
-	container          testcontainers.Container
-	meter              metric.Meter
-	tracer             trace.Tracer
-	log                *zap.Logger
+	db  *gorm.DB
+	ctx context.Context
+	// container          testcontainers.Container
 	customerRepository repository.CustomerRepository
+
+	meter  metric.Meter
+	tracer trace.Tracer
+	log    *zap.Logger
 }
 
 func (suite *CustomerRepositoryTestSuite) SetupSuite() {
-	suite.ctx = context.Background()
+	// Setup database connection untuk testing
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8mb4&parseTime=True&loc=Local",
+		common.GetEnv("DB_USER", "root"),
+		common.GetEnv("DB_PASSWORD", "rootpassword123"),
+		common.GetEnv("DB_HOST", "localhost"),
+		common.GetEnv("DB_PORT", "3306"),
+	)
 
-	req := testcontainers.ContainerRequest{
-		Image: "alpine:latest",
-		Cmd:   []string{"tail", "-f", "/dev/null"},
-		// Files: []testcontainers.ContainerFile{
-		// 	{
-		// 		HostFilePath: "/tmp/testdb",
-		// 		ContainerFilePath: "/data",
-		// 		FileMode: 0644,
-		// 	},
-		// },
-		HostConfigModifier: func(hc *container.HostConfig) {
-			hc.Binds = []string{"/tmp/testdb:/data"} // bind host to container
-		},
-		WaitingFor: wait.ForLog(""), // optional: wait strategy
-	}
-
-	container, err := testcontainers.GenericContainer(suite.ctx, testcontainers.GenericContainerRequest{
-		ContainerRequest: req,
-		Started:          true,
-	})
+	db, err := sql.Open("mysql", dsn)
 	require.NoError(suite.T(), err)
-	suite.container = container
 
-	// Setup SQLite database connection
-	// Use temporary directory for test database
-	tmpDir := suite.T().TempDir()
-	dbPath := filepath.Join(tmpDir, "test.db")
+	testDBName := "loan_system_test"
 
-	gormDB, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
+	// Drop database jika sudah ada
+	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", testDBName))
+	require.NoError(suite.T(), err)
+
+	// Buat database untuk testing
+	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", testDBName))
+	require.NoError(suite.T(), err)
+
+	db.Close()
+
+	// Connect ke test database
+	testDSN := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		common.GetEnv("DB_USER", "root"),
+		common.GetEnv("DB_PASSWORD", "rootpassword123"),
+		common.GetEnv("DB_HOST", "localhost"),
+		common.GetEnv("DB_PORT", "3306"),
+		testDBName,
+	)
+
+	gormDB, err := gorm.Open(mysql.Open(testDSN), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(suite.T(), err)
 
 	suite.db = gormDB
+	suite.ctx = context.Background()
 
-	err = suite.db.AutoMigrate(
-		&model.Customer{},
-		&model.Tenor{},
-		&model.Transaction{},
-		&model.CustomerLimit{},
-	)
+	// Auto migrate models
+	err = suite.db.AutoMigrate(&model.Customer{}, &model.Tenor{}, &model.CustomerLimit{}, &model.Transaction{})
 	require.NoError(suite.T(), err)
 
 	// Initialize repository
@@ -87,17 +85,19 @@ func (suite *CustomerRepositoryTestSuite) SetupSuite() {
 }
 
 func (suite *CustomerRepositoryTestSuite) TearDownSuite() {
-	// Close database connection
-	if suite.db != nil {
-		sqlDB, err := suite.db.DB()
-		if err == nil {
-			sqlDB.Close()
-		}
-	}
+	// Drop test database
+	testDBName := "loan_system_test"
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8mb4&parseTime=True&loc=Local",
+		common.GetEnv("DB_USER", "root"),
+		common.GetEnv("DB_PASSWORD", "rootpassword123"),
+		common.GetEnv("DB_HOST", "localhost"),
+		common.GetEnv("DB_PORT", "3306"),
+	)
 
-	// Terminate container
-	if suite.container != nil {
-		suite.container.Terminate(suite.ctx)
+	db, err := sql.Open("mysql", dsn)
+	if err == nil {
+		db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", testDBName))
+		db.Close()
 	}
 }
 
@@ -111,7 +111,7 @@ func (suite *CustomerRepositoryTestSuite) SetupTest() {
 
 func (suite *CustomerRepositoryTestSuite) TestSave_Success() {
 	// Arrange
-	customer := &domain.Customer{
+	customer := domain.Customer{
 		NIK:                "1234567890123456",
 		FullName:           "John Doe",
 		LegalName:          "John Doe Legal",
@@ -156,7 +156,7 @@ func (suite *CustomerRepositoryTestSuite) TestFindByID_Success() {
 		UpdatedAt:          time.Now(),
 	}
 
-	err := suite.db.Create(&customerModel).Error
+	err := suite.db.Create(customerModel).Error
 	require.NoError(suite.T(), err)
 
 	// Act

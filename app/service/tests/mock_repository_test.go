@@ -50,8 +50,8 @@ func (m *MockCustomerRepository) FindByID(ctx context.Context, id uint64) (*doma
 	return m.MockFindByIDData, m.MockError
 }
 
-func (m *MockCustomerRepository) CreateCustomer(ctx context.Context, customer *domain.Customer) error {
-	m.CreateCalledWith = customer
+func (m *MockCustomerRepository) CreateCustomer(ctx context.Context, customer domain.Customer) error {
+	m.CreateCalledWith = &customer
 	return m.MockError
 }
 

@@ -39,8 +39,8 @@ type profileService struct {
 	profilesUpdated   metric.Int64Counter
 }
 
-// CreateProfile implements ProfileUsecases.
-func (p *profileService) CreateProfile(ctx context.Context, req *domain.Customer) (*domain.Customer, error) {
+// Create implements ProfileUsecases.
+func (p *profileService) Create(ctx context.Context, req *domain.Customer) (*domain.Customer, error) {
 	ctx, span := p.tracer.Start(ctx, "service.CreateProfile")
 	defer span.End()
 
@@ -128,7 +128,7 @@ func (p *profileService) CreateProfile(ctx context.Context, req *domain.Customer
 	}
 
 	// 4. Buat entitas customer baru
-	newCustomer := &domain.Customer{
+	newCustomer := domain.Customer{
 		NIK:                req.NIK,
 		FullName:           req.FullName,
 		LegalName:          req.LegalName,
@@ -201,7 +201,7 @@ func (p *profileService) CreateProfile(ctx context.Context, req *domain.Customer
 		attribute.String("verification_status", string(newCustomer.VerificationStatus)),
 	)
 
-	return newCustomer, nil
+	return &newCustomer, nil
 }
 
 // GetMyLimits implements ProfileUsecases.
@@ -586,8 +586,8 @@ func (p *profileService) GetMyProfile(ctx context.Context, customerID uint64) (*
 	return customer, nil
 }
 
-// UpdateProfile implements ProfileUsecases.
-func (p *profileService) UpdateProfile(ctx context.Context, customerID uint64, req domain.Customer) error {
+// Update implements ProfileUsecases.
+func (p *profileService) Update(ctx context.Context, customerID uint64, req domain.Customer) error {
 	ctx, span := p.tracer.Start(ctx, "service.UpdateProfile")
 	defer span.End()
 

@@ -7,7 +7,7 @@ import (
 )
 
 type CustomerRepository interface {
-	CreateCustomer(ctx context.Context, customer *domain.Customer) error
+	CreateCustomer(ctx context.Context, customer domain.Customer) error
 	FindByNIK(ctx context.Context, nik string) (*domain.Customer, error)
 	FindByNIKWithLock(ctx context.Context, nik string) (*domain.Customer, error)
 	FindByID(ctx context.Context, id uint64) (*domain.Customer, error)

@@ -124,7 +124,7 @@ func (h *ProfileHandler) CreateProfile(c *fiber.Ctx) error {
 	}
 
 	dtoRegister := dto.RegisterToEntity(req, ktpUrl, selfieUrl)
-	newCustomer, err := h.profileService.CreateProfile(c.Context(), dtoRegister)
+	newCustomer, err := h.profileService.Create(c.Context(), dtoRegister)
 	if err != nil {
 		if err.Error() == "nik already registered" {
 			return common.ErrorResponse(c, fiber.StatusConflict, err.Error())
@@ -170,7 +170,7 @@ func (h *ProfileHandler) UpdateMyProfile(c *fiber.Ctx) error {
 	}
 
 	dtoUpdate := dto.UpdateToEntity(req)
-	if err := h.profileService.UpdateProfile(c.Context(), customerID, dtoUpdate); err != nil {
+	if err := h.profileService.Update(c.Context(), customerID, dtoUpdate); err != nil {
 		// ... (error handling)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}

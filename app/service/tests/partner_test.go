@@ -171,7 +171,7 @@ func TestCreateTransaction(t *testing.T) {
 	// --- Skenario 1: Sukses - Transaksi berhasil dibuat ---
 	t.Run("Success - Create Transaction", func(t *testing.T) {
 		// Arrange
-		db := setupTestDB(t)
+		db := SetupTestDB(t)
 
 		customerRepository := repository.NewCustomerRepository(
 			db,
@@ -179,9 +179,24 @@ func TestCreateTransaction(t *testing.T) {
 			otel.GetTracerProvider().Tracer(""),
 			zap.L(),
 		)
-		tenorRepository := repository.NewTenorRepository(db)
-		limitRepository := repository.NewLimitRepository(db)
-		transactionRepository := repository.NewTransactionRepository(db)
+		tenorRepository := repository.NewTenorRepository(
+			db,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
+		)
+		limitRepository := repository.NewLimitRepository(
+			db,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
+		)
+		transactionRepository := repository.NewTransactionRepository(
+			db,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
+		)
 
 		service := service.NewPartnerService(
 			db,
@@ -239,7 +254,7 @@ func TestCreateTransaction(t *testing.T) {
 	// --- Skenario 2: Gagal - Limit tidak cukup ---
 	t.Run("Failure - Insufficient Limit", func(t *testing.T) {
 		// Arrange
-		db := setupTestDB(t)
+		db := SetupTestDB(t)
 
 		customerRepository := repository.NewCustomerRepository(
 			db,
@@ -247,9 +262,24 @@ func TestCreateTransaction(t *testing.T) {
 			otel.GetTracerProvider().Tracer(""),
 			zap.L(),
 		)
-		tenorRepository := repository.NewTenorRepository(db)
-		limitRepository := repository.NewLimitRepository(db)
-		transactionRepository := repository.NewTransactionRepository(db)
+		tenorRepository := repository.NewTenorRepository(
+			db,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
+		)
+		limitRepository := repository.NewLimitRepository(
+			db,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
+		)
+		transactionRepository := repository.NewTransactionRepository(
+			db,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
+		)
 
 		service := service.NewPartnerService(
 			db,
@@ -300,7 +330,7 @@ func TestCreateTransaction(t *testing.T) {
 	// --- Skenario 3: Gagal - Customer tidak terverifikasi ---
 	t.Run("Failure - Customer Not Verified", func(t *testing.T) {
 		// Arrange
-		db := setupTestDB(t)
+		db := SetupTestDB(t)
 
 		customerRepository := repository.NewCustomerRepository(
 			db,
@@ -308,9 +338,24 @@ func TestCreateTransaction(t *testing.T) {
 			otel.GetTracerProvider().Tracer(""),
 			zap.L(),
 		)
-		tenorRepository := repository.NewTenorRepository(db)
-		limitRepository := repository.NewLimitRepository(db)
-		transactionRepository := repository.NewTransactionRepository(db)
+		tenorRepository := repository.NewTenorRepository(
+			db,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
+		)
+		limitRepository := repository.NewLimitRepository(
+			db,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
+		)
+		transactionRepository := repository.NewTransactionRepository(
+			db,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
+		)
 
 		service := service.NewPartnerService(
 			db,
@@ -347,7 +392,7 @@ func TestCreateTransaction(t *testing.T) {
 	// --- Skenario 4: Gagal - Customer tidak ditemukan ---
 	t.Run("Failure - Customer Not Found", func(t *testing.T) {
 		// Arrange
-		db := setupTestDB(t)
+		db := SetupTestDB(t)
 
 		customerRepository := repository.NewCustomerRepository(
 			db,
@@ -355,9 +400,24 @@ func TestCreateTransaction(t *testing.T) {
 			otel.GetTracerProvider().Tracer(""),
 			zap.L(),
 		)
-		tenorRepository := repository.NewTenorRepository(db)
-		limitRepository := repository.NewLimitRepository(db)
-		transactionRepository := repository.NewTransactionRepository(db)
+		tenorRepository := repository.NewTenorRepository(
+			db,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
+		)
+		limitRepository := repository.NewLimitRepository(
+			db,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
+		)
+		transactionRepository := repository.NewTransactionRepository(
+			db,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
+		)
 
 		service := service.NewPartnerService(
 			db,

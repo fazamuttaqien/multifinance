@@ -13,9 +13,9 @@ type Media interface {
 }
 
 type ProfileServices interface {
-	CreateProfile(ctx context.Context, req *domain.Customer) (*domain.Customer, error)
+	Create(ctx context.Context, req *domain.Customer) (*domain.Customer, error)
+	Update(ctx context.Context, customerID uint64, req domain.Customer) error
 	GetMyProfile(ctx context.Context, customerID uint64) (*domain.Customer, error)
-	UpdateProfile(ctx context.Context, customerID uint64, req domain.Customer) error
 	GetMyLimits(ctx context.Context, customerID uint64) ([]dto.LimitDetailResponse, error)
 	GetMyTransactions(ctx context.Context, customerID uint64, params domain.Params) (*domain.Paginated, error)
 }

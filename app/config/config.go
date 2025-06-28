@@ -1,8 +1,6 @@
 package config
 
 import (
-	"fmt"
-	"os"
 	"time"
 )
 
@@ -24,12 +22,12 @@ type Config struct {
 	SHUTDOWN_TIMEOUT            time.Duration
 }
 
-func LoadConfig(configPath string) (*Config, error) {
-	file, err := os.Open(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open configuration file: %w", err)
-	}
-	defer file.Close()
+func LoadConfig() (*Config, error) {
+	// file, err := os.Open(configPath)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to open configuration file: %w", err)
+	// }
+	// defer file.Close()
 
 	config := &Config{
 		SERVICE_NAME:                "multifinance",

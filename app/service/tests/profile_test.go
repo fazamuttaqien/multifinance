@@ -41,7 +41,7 @@ func TestRegister(t *testing.T) {
 		mockMediaRepository.MockUploadImageURL = "http://cloudinary.com/image.jpg"
 
 		// Act
-		customer, err := service.CreateProfile(context.Background(), &req)
+		customer, err := service.Create(context.Background(), &req)
 
 		// Assert
 		assert.NoError(t, err)
@@ -56,7 +56,7 @@ func TestRegister(t *testing.T) {
 		mockCustomerRepository.MockFindByNIKData = &domain.Customer{} // NIK ditemukan
 
 		// Act
-		_, err := service.CreateProfile(context.Background(), &req)
+		_, err := service.Create(context.Background(), &req)
 
 		// Assert
 		assert.Error(t, err)
@@ -69,7 +69,7 @@ func TestRegister(t *testing.T) {
 		mockMediaRepository.MockUploadImageError = errors.New("upload failed")
 
 		// Act
-		_, err := service.CreateProfile(context.Background(), &req)
+		_, err := service.Create(context.Background(), &req)
 
 		// Assert
 		assert.Error(t, err)
@@ -82,7 +82,7 @@ func TestGetMyLimits(t *testing.T) {
 	mockLimitRepository := &MockLimitRepository{}
 	mockTenorRepository := &MockTenorRepository{}
 	mockTxnRepository := &MockTransactionRepository{}
-	
+
 	service := service.NewProfileService(
 		nil, nil,
 		mockLimitRepository,
@@ -157,7 +157,7 @@ func TestGetMyTransactions(t *testing.T) {
 
 func TestUpdateProfile(t *testing.T) {
 	// Arrange
-	db := setupTestDB(t)
+	db := SetupTestDB(t)
 
 	customerRepository := repository.NewCustomerRepository(
 		db,
@@ -191,7 +191,7 @@ func TestUpdateProfile(t *testing.T) {
 		}
 
 		// Act
-		err := service.UpdateProfile(context.Background(), 10, req)
+		err := service.Update(context.Background(), 10, req)
 
 		// Assert
 		assert.NoError(t, err)
@@ -207,7 +207,7 @@ func TestUpdateProfile(t *testing.T) {
 		req := domain.Customer{FullName: "New Name", Salary: 10000}
 
 		// Act
-		err := service.UpdateProfile(context.Background(), 99, req) // ID 99 tidak ada
+		err := service.Update(context.Background(), 99, req) // ID 99 tidak ada
 
 		// Assert
 		assert.Error(t, err)

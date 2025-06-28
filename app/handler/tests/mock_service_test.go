@@ -16,7 +16,7 @@ type mockProfileService struct {
 	MockError                   error
 }
 
-func (m *mockProfileService) CreateProfile(ctx context.Context, customer *domain.Customer) (*domain.Customer, error) {
+func (m *mockProfileService) Create(ctx context.Context, customer *domain.Customer) (*domain.Customer, error) {
 	if m.MockError != nil {
 		return nil, m.MockError
 	}
@@ -30,7 +30,7 @@ func (m *mockProfileService) GetMyProfile(ctx context.Context, id uint64) (*doma
 	return m.MockGetMyProfileResult, nil
 }
 
-func (m *mockProfileService) UpdateProfile(ctx context.Context, id uint64, customer domain.Customer) error {
+func (m *mockProfileService) Update(ctx context.Context, id uint64, customer domain.Customer) error {
 	return m.MockError
 }
 

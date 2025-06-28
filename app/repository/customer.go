@@ -554,7 +554,7 @@ func (c *customerRepository) FindPaginated(ctx context.Context, params domain.Pa
 }
 
 // CreateCustomer implements CustomerRepository.
-func (c *customerRepository) CreateCustomer(ctx context.Context, customer *domain.Customer) error {
+func (c *customerRepository) CreateCustomer(ctx context.Context, customer domain.Customer) error {
 	ctx, span := c.tracer.Start(ctx, "repository.CreateCustomer")
 	defer span.End()
 

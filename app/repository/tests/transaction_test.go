@@ -14,6 +14,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -23,6 +27,9 @@ type TransactionRepositoryTestSuite struct {
 	suite.Suite
 	db                    *gorm.DB
 	ctx                   context.Context
+	meter                 metric.Meter
+	tracer                trace.Tracer
+	log                   *zap.Logger
 	transactionRepository repository.TransactionRepository
 
 	// Test data
@@ -76,7 +83,7 @@ func (suite *TransactionRepositoryTestSuite) SetupSuite() {
 	require.NoError(suite.T(), err)
 
 	// Initialize repository
-	suite.transactionRepository = repository.NewTransactionRepository(suite.db)
+	suite.transactionRepository = repository.NewTransactionRepository(suite.db, suite.meter, suite.tracer, suite.log)
 }
 
 func (suite *TransactionRepositoryTestSuite) TearDownSuite() {
@@ -544,7 +551,12 @@ func BenchmarkTransactionRepository_CreateTransaction(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	repo := repository.NewTransactionRepository(db)
+	repo := repository.NewTransactionRepository(
+		db,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
 	ctx := context.Background()
 
 	// Setup test data
@@ -605,7 +617,11 @@ func BenchmarkTransactionRepository_SumActivePrincipal(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	repo := repository.NewTransactionRepository(db)
+	repo := repository.NewTransactionRepository(
+		db,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L())
 	ctx := context.Background()
 
 	// Setup test data
@@ -629,7 +645,7 @@ func BenchmarkTransactionRepository_SumActivePrincipal(b *testing.B) {
 	db.Create(&tenor)
 
 	// Create some active transactions
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		transaction := model.Transaction{
 			ContractNumber:  fmt.Sprintf("SETUP%010d", i),
 			CustomerID:      customer.ID,

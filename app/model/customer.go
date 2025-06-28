@@ -4,7 +4,7 @@ import (
 	"github.com/fazamuttaqien/multifinance/domain"
 )
 
-func CustomerFromEntity(data *domain.Customer) Customer {
+func CustomerFromEntity(data domain.Customer) Customer {
 	return Customer{
 		ID:                 data.ID,
 		NIK:                data.NIK,
