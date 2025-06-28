@@ -12,6 +12,8 @@ import (
 	"github.com/fazamuttaqien/multifinance/repository"
 	"github.com/fazamuttaqien/multifinance/service"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel"
+	"go.uber.org/zap"
 )
 
 // UNIT TESTS
@@ -106,7 +108,12 @@ func TestGetCustomerByID_Admin(t *testing.T) {
 func TestVerifyCustomer(t *testing.T) {
 	// Arrange (menggunakan DB sungguhan, tapi in-memory)
 	db := setupTestDB(t)
-	customerRepository := repository.NewCustomerRepository(db)
+	customerRepository := repository.NewCustomerRepository(
+		db,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
 	service := service.NewAdminService(db, customerRepository)
 
 	// Buat data customer yang PENDING
@@ -148,11 +155,24 @@ func TestVerifyCustomer(t *testing.T) {
 func TestSetLimits(t *testing.T) {
 	// Arrange
 	db := setupTestDB(t)
-	customerRepository := repository.NewCustomerRepository(db)
+	
+	customerRepository := repository.NewCustomerRepository(
+		db,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
 	service := service.NewAdminService(db, customerRepository)
 
 	// Buat data customer dan tenor
-	db.Create(&domain.Customer{ID: 3, NIK: "222", FullName: "Limit User", BirthDate: time.Now(), KtpUrl: "url", SelfieUrl: "url"})
+	db.Create(&domain.Customer{
+		ID:        3,
+		NIK:       "222",
+		FullName:  "Limit User",
+		BirthDate: time.Now(),
+		KtpUrl:    "url",
+		SelfieUrl: "url"},
+	)
 	db.Create(&domain.Tenor{ID: 1, DurationMonths: 3})
 	db.Create(&domain.Tenor{ID: 2, DurationMonths: 6})
 
@@ -180,7 +200,7 @@ func TestSetLimits(t *testing.T) {
 	t.Run("Success Updating Existing Limits", func(t *testing.T) {
 		req := dto.SetLimits{
 			Limits: []dto.LimitItemRequest{
-				{TenorMonths: 3, LimitAmount: 1500}, // Update nilai ini
+				{TenorMonths: 3, LimitAmount: 1500},
 			},
 		}
 

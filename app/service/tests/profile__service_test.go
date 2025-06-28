@@ -11,6 +11,8 @@ import (
 	"github.com/fazamuttaqien/multifinance/repository"
 	"github.com/fazamuttaqien/multifinance/service"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel"
+	"go.uber.org/zap"
 )
 
 // UNIT TESTS
@@ -19,7 +21,14 @@ func TestRegister(t *testing.T) {
 	mockCustomerRepository := &MockCustomerRepository{}
 	mockMediaRepository := &MockMediaRepository{}
 
-	service := service.NewProfileService(nil, mockCustomerRepository, nil, nil, nil)
+	service := service.NewProfileService(
+		nil,
+		mockCustomerRepository,
+		nil, nil, nil,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
 
 	birthDate, _ := time.Parse("2006-01-02", "2000-01-01")
 	req := domain.Customer{
@@ -73,11 +82,15 @@ func TestGetMyLimits(t *testing.T) {
 	mockLimitRepository := &MockLimitRepository{}
 	mockTenorRepository := &MockTenorRepository{}
 	mockTxnRepository := &MockTransactionRepository{}
+	
 	service := service.NewProfileService(
 		nil, nil,
 		mockLimitRepository,
 		mockTenorRepository,
 		mockTxnRepository,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
 	)
 
 	t.Run("Success with calculated remaining limit", func(t *testing.T) {
@@ -114,7 +127,13 @@ func TestGetMyLimits(t *testing.T) {
 func TestGetMyTransactions(t *testing.T) {
 	// Arrange
 	mockTxnRepository := &MockTransactionRepository{}
-	service := service.NewProfileService(nil, nil, nil, nil, mockTxnRepository)
+	service := service.NewProfileService(
+		nil, nil, nil, nil,
+		mockTxnRepository,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
 
 	t.Run("Success with pagination", func(t *testing.T) {
 		// Konfigurasi mock
@@ -139,9 +158,21 @@ func TestGetMyTransactions(t *testing.T) {
 func TestUpdateProfile(t *testing.T) {
 	// Arrange
 	db := setupTestDB(t)
-	
-	customerRepository := repository.NewCustomerRepository(db)
-	service := service.NewProfileService(db, customerRepository, nil, nil, nil)
+
+	customerRepository := repository.NewCustomerRepository(
+		db,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
+	service := service.NewProfileService(
+		db,
+		customerRepository,
+		nil, nil, nil,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
+	)
 
 	// Buat data customer untuk diupdate
 	testCustomer := &domain.Customer{

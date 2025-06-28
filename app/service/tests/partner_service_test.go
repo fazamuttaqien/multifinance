@@ -12,6 +12,8 @@ import (
 	"github.com/fazamuttaqien/multifinance/repository"
 	"github.com/fazamuttaqien/multifinance/service"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel"
+	"go.uber.org/zap"
 )
 
 func TestCheckLimit(t *testing.T) {
@@ -28,6 +30,9 @@ func TestCheckLimit(t *testing.T) {
 		mockTenorRepository,
 		mockLimitRepository,
 		mockTxnRepository,
+		otel.GetMeterProvider().Meter(""),
+		otel.GetTracerProvider().Tracer(""),
+		zap.L(),
 	)
 
 	// --- Skenario 1: Sukses - Limit Cukup (Approved) ---
@@ -168,7 +173,12 @@ func TestCreateTransaction(t *testing.T) {
 		// Arrange
 		db := setupTestDB(t)
 
-		customerRepository := repository.NewCustomerRepository(db)
+		customerRepository := repository.NewCustomerRepository(
+			db,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
+		)
 		tenorRepository := repository.NewTenorRepository(db)
 		limitRepository := repository.NewLimitRepository(db)
 		transactionRepository := repository.NewTransactionRepository(db)
@@ -179,6 +189,9 @@ func TestCreateTransaction(t *testing.T) {
 			tenorRepository,
 			limitRepository,
 			transactionRepository,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
 		)
 
 		// Seed data yang diperlukan
@@ -228,7 +241,12 @@ func TestCreateTransaction(t *testing.T) {
 		// Arrange
 		db := setupTestDB(t)
 
-		customerRepository := repository.NewCustomerRepository(db)
+		customerRepository := repository.NewCustomerRepository(
+			db,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
+		)
 		tenorRepository := repository.NewTenorRepository(db)
 		limitRepository := repository.NewLimitRepository(db)
 		transactionRepository := repository.NewTransactionRepository(db)
@@ -239,6 +257,9 @@ func TestCreateTransaction(t *testing.T) {
 			tenorRepository,
 			limitRepository,
 			transactionRepository,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
 		)
 
 		// Seed data dengan limit yang kecil
@@ -281,7 +302,12 @@ func TestCreateTransaction(t *testing.T) {
 		// Arrange
 		db := setupTestDB(t)
 
-		customerRepository := repository.NewCustomerRepository(db)
+		customerRepository := repository.NewCustomerRepository(
+			db,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
+		)
 		tenorRepository := repository.NewTenorRepository(db)
 		limitRepository := repository.NewLimitRepository(db)
 		transactionRepository := repository.NewTransactionRepository(db)
@@ -292,6 +318,9 @@ func TestCreateTransaction(t *testing.T) {
 			tenorRepository,
 			limitRepository,
 			transactionRepository,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
 		)
 
 		// Seed customer dengan status PENDING
@@ -320,7 +349,12 @@ func TestCreateTransaction(t *testing.T) {
 		// Arrange
 		db := setupTestDB(t)
 
-		customerRepository := repository.NewCustomerRepository(db)
+		customerRepository := repository.NewCustomerRepository(
+			db,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
+		)
 		tenorRepository := repository.NewTenorRepository(db)
 		limitRepository := repository.NewLimitRepository(db)
 		transactionRepository := repository.NewTransactionRepository(db)
@@ -331,6 +365,9 @@ func TestCreateTransaction(t *testing.T) {
 			tenorRepository,
 			limitRepository,
 			transactionRepository,
+			otel.GetMeterProvider().Meter(""),
+			otel.GetTracerProvider().Tracer(""),
+			zap.L(),
 		)
 
 		// Tidak ada customer yang di-seed
