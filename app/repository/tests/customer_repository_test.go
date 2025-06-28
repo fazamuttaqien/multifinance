@@ -120,7 +120,7 @@ func (suite *CustomerRepositoryTestSuite) TestSave_Success() {
 	}
 
 	// Act
-	err := suite.customerRepository.Save(suite.ctx, customer)
+	err := suite.customerRepository.CreateCustomer(suite.ctx, customer)
 
 	// Assert
 	assert.NoError(suite.T(), err)
@@ -143,8 +143,8 @@ func (suite *CustomerRepositoryTestSuite) TestFindByID_Success() {
 		BirthPlace:         "Jakarta",
 		BirthDate:          time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
 		Salary:             5000000,
-		KTPPhotoURL:        "https://example.com/ktp.jpg",
-		SelfiePhotoURL:     "https://example.com/selfie.jpg",
+		KtpPhotoUrl:        "https://example.com/ktp.jpg",
+		SelfiePhotoUrl:     "https://example.com/selfie.jpg",
 		VerificationStatus: model.VerificationPending,
 		CreatedAt:          time.Now(),
 		UpdatedAt:          time.Now(),
@@ -183,8 +183,8 @@ func (suite *CustomerRepositoryTestSuite) TestFindByNIK_Success_WithoutLock() {
 		BirthPlace:         "Jakarta",
 		BirthDate:          time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
 		Salary:             5000000,
-		KTPPhotoURL:        "https://example.com/ktp.jpg",
-		SelfiePhotoURL:     "https://example.com/selfie.jpg",
+		KtpPhotoUrl:        "https://example.com/ktp.jpg",
+		SelfiePhotoUrl:     "https://example.com/selfie.jpg",
 		VerificationStatus: model.VerificationVerified,
 		CreatedAt:          time.Now(),
 		UpdatedAt:          time.Now(),
@@ -194,7 +194,7 @@ func (suite *CustomerRepositoryTestSuite) TestFindByNIK_Success_WithoutLock() {
 	require.NoError(suite.T(), err)
 
 	// Act
-	result, err := suite.customerRepository.FindByNIK(suite.ctx, nik, false)
+	result, err := suite.customerRepository.FindByNIK(suite.ctx, nik)
 
 	// Assert
 	assert.NoError(suite.T(), err)
@@ -213,8 +213,8 @@ func (suite *CustomerRepositoryTestSuite) TestFindByNIK_Success_WithLock() {
 		BirthPlace:         "Bandung",
 		BirthDate:          time.Date(1992, 5, 15, 0, 0, 0, 0, time.UTC),
 		Salary:             7000000,
-		KTPPhotoURL:        "https://example.com/ktp2.jpg",
-		SelfiePhotoURL:     "https://example.com/selfie2.jpg",
+		KtpPhotoUrl:        "https://example.com/ktp2.jpg",
+		SelfiePhotoUrl:     "https://example.com/selfie2.jpg",
 		VerificationStatus: model.VerificationVerified,
 		CreatedAt:          time.Now(),
 		UpdatedAt:          time.Now(),
@@ -224,7 +224,7 @@ func (suite *CustomerRepositoryTestSuite) TestFindByNIK_Success_WithLock() {
 	require.NoError(suite.T(), err)
 
 	// Act
-	result, err := suite.customerRepository.FindByNIK(suite.ctx, nik, true)
+	result, err := suite.customerRepository.FindByNIKWithLock(suite.ctx, nik)
 
 	// Assert
 	assert.NoError(suite.T(), err)
@@ -235,7 +235,7 @@ func (suite *CustomerRepositoryTestSuite) TestFindByNIK_Success_WithLock() {
 
 func (suite *CustomerRepositoryTestSuite) TestFindByNIK_NotFound() {
 	// Act
-	result, err := suite.customerRepository.FindByNIK(suite.ctx, "nonexistent", false)
+	result, err := suite.customerRepository.FindByNIK(suite.ctx, "nonexistent")
 
 	// Assert
 	assert.NoError(suite.T(), err)
@@ -454,7 +454,7 @@ func BenchmarkCustomerRepository_Save(b *testing.B) {
 				CreatedAt:          time.Now(),
 				UpdatedAt:          time.Now(),
 			}
-			repo.Save(ctx, customer)
+			repo.CreateCustomer(ctx, customer)
 			i++
 		}
 	})

@@ -15,13 +15,12 @@ type Customer struct {
 	BirthPlace         string             `gorm:"type:varchar(100);not null" json:"birth_place"`
 	BirthDate          time.Time          `gorm:"type:date;not null" json:"birth_date"`
 	Salary             float64            `gorm:"type:decimal(15,2);not null" json:"salary"`
-	KTPPhotoURL        string             `gorm:"type:varchar(255);not null" json:"ktp_photo_url"`
-	SelfiePhotoURL     string             `gorm:"type:varchar(255);not null" json:"selfie_photo_url"`
+	KtpPhotoUrl        string             `gorm:"type:varchar(255);not null" json:"ktp_photo_url"`
+	SelfiePhotoUrl     string             `gorm:"type:varchar(255);not null" json:"selfie_photo_url"`
 	VerificationStatus VerificationStatus `gorm:"type:enum('PENDING','VERIFIED','REJECTED');default:'PENDING';not null" json:"verification_status"`
 	CreatedAt          time.Time          `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt          time.Time          `gorm:"autoUpdateTime" json:"updated_at"`
 
-	// Relationships
 	CustomerLimits []CustomerLimit `gorm:"foreignKey:CustomerID" json:"customer_limits,omitempty"`
 	Transactions   []Transaction   `gorm:"foreignKey:CustomerID" json:"transactions,omitempty"`
 }
@@ -41,7 +40,6 @@ type Tenor struct {
 	DurationMonths uint8  `gorm:"not null;uniqueIndex" json:"duration_months"`
 	Description    string `gorm:"type:varchar(50)" json:"description"`
 
-	// Relationships
 	CustomerLimits []CustomerLimit `gorm:"foreignKey:TenorID" json:"customer_limits,omitempty"`
 	Transactions   []Transaction   `gorm:"foreignKey:TenorID" json:"transactions,omitempty"`
 }
@@ -52,7 +50,6 @@ type CustomerLimit struct {
 	TenorID     uint    `gorm:"primaryKey" json:"tenor_id"`
 	LimitAmount float64 `gorm:"type:decimal(15,2);not null" json:"limit_amount"`
 
-	// Relationships
 	Customer Customer `gorm:"foreignKey:CustomerID;constraint:OnDelete:CASCADE" json:"customer"`
 	Tenor    Tenor    `gorm:"foreignKey:TenorID;constraint:OnDelete:RESTRICT" json:"tenor"`
 }
@@ -71,7 +68,6 @@ type Transaction struct {
 	Status                 TransactionStatus `gorm:"type:enum('PENDING','APPROVED','ACTIVE','PAID_OFF','CANCELLED');default:'PENDING';not null" json:"status"`
 	TransactionDate        time.Time         `gorm:"autoCreateTime" json:"transaction_date"`
 
-	// Relationships
 	Customer Customer `gorm:"foreignKey:CustomerID;constraint:OnDelete:RESTRICT" json:"customer"`
 	Tenor    Tenor    `gorm:"foreignKey:TenorID;constraint:OnDelete:RESTRICT" json:"tenor"`
 }

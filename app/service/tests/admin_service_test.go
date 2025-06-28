@@ -17,7 +17,7 @@ import (
 // UNIT TESTS
 func TestListCustomers(t *testing.T) {
 	// Arrange
-	mockRepository := &mockCustomerRepository{}
+	mockRepository := &MockCustomerRepository{}
 	// Kita set db dan repo lain ke nil karena service ini tidak menggunakannya
 	service := service.NewAdminService(nil, mockRepository)
 
@@ -66,7 +66,7 @@ func TestListCustomers(t *testing.T) {
 
 func TestGetCustomerByID_Admin(t *testing.T) {
 	// Arrange
-	mockRepository := &mockCustomerRepository{}
+	mockRepository := &MockCustomerRepository{}
 	service := service.NewAdminService(nil, mockRepository)
 
 	// Skenario 1: Customer ditemukan

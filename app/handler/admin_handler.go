@@ -35,7 +35,9 @@ func (h *AdminHandler) ListCustomers(c *fiber.Ctx) error {
 func (h *AdminHandler) GetCustomerByID(c *fiber.Ctx) error {
 	customerID, err := strconv.ParseUint(c.Params("customerId"), 10, 64)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid customer ID"})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid customer ID",
+		})
 	}
 
 	customer, err := h.adminService.GetCustomerByNIK(c.Context(), customerID)

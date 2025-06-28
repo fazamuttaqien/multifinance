@@ -13,8 +13,8 @@ func CustomerFromEntity(data *domain.Customer) Customer {
 		BirthPlace:         data.BirthPlace,
 		BirthDate:          data.BirthDate,
 		Salary:             data.Salary,
-		KTPPhotoURL:        data.KtpUrl,
-		SelfiePhotoURL:     data.SelfieUrl,
+		KtpPhotoUrl:        data.KtpUrl,
+		SelfiePhotoUrl:     data.SelfieUrl,
 		VerificationStatus: VerificationStatus(data.VerificationStatus),
 	}
 }
@@ -28,8 +28,8 @@ func CustomerToEntity(data Customer) *domain.Customer {
 		BirthPlace:         data.BirthPlace,
 		BirthDate:          data.BirthDate,
 		Salary:             data.Salary,
-		KtpUrl:             data.KTPPhotoURL,
-		SelfieUrl:          data.SelfiePhotoURL,
+		KtpUrl:             data.KtpPhotoUrl,
+		SelfieUrl:          data.SelfiePhotoUrl,
 		VerificationStatus: domain.VerificationStatus(data.VerificationStatus),
 	}
 }
@@ -45,8 +45,8 @@ func CustomersToEntity(data []Customer) []domain.Customer {
 			BirthPlace:         c.BirthPlace,
 			BirthDate:          c.BirthDate,
 			Salary:             c.Salary,
-			KtpUrl:             c.KTPPhotoURL,
-			SelfieUrl:          c.SelfiePhotoURL,
+			KtpUrl:             c.KtpPhotoUrl,
+			SelfieUrl:          c.SelfiePhotoUrl,
 			VerificationStatus: domain.VerificationStatus(c.VerificationStatus),
 		}
 	}

@@ -31,7 +31,7 @@ func (p *partnerService) CreateTransaction(ctx context.Context, req dto.Transact
 
 	// 1. Mendapatkan Customer berdasarkan NIK dan KUNCI barisnya untuk mencegah race condition
 	customerTx := repository.NewCustomerRepository(tx)
-	lockedCustomer, err := customerTx.FindByNIK(ctx, req.NIK, true)
+	lockedCustomer, err := customerTx.FindByNIKWithLock(ctx, req.NIK)
 	if err != nil {
 		return nil, fmt.Errorf("error finding customer: %w", err)
 	}
@@ -116,7 +116,7 @@ func (p *partnerService) CreateTransaction(ctx context.Context, req dto.Transact
 // CheckLimit implements PartnerUsecases.
 func (p *partnerService) CheckLimit(ctx context.Context, req dto.CheckLimitRequest) (*dto.CheckLimitResponse, error) {
 	// 1. Validasi Customer & Tenor
-	cust, err := p.customerRepository.FindByNIK(ctx, req.NIK, false)
+	cust, err := p.customerRepository.FindByNIK(ctx, req.NIK)
 	if err != nil {
 		return nil, err
 	}

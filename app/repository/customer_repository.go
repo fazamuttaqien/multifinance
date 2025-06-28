@@ -14,6 +14,22 @@ type customerRepository struct {
 	db *gorm.DB
 }
 
+// FindByNIKWithLock implements CustomerRepository.
+func (c *customerRepository) FindByNIKWithLock(ctx context.Context, nik string) (*domain.Customer, error) {
+	var customer model.Customer
+	
+	// Menggunakan Clauses(clause.Locking{Strength: "UPDATE"}) untuk SELECT ... FOR UPDATE
+	err := c.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("nik = ?", nik).First(&customer).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return model.CustomerToEntity(customer), nil
+}
+
 // FindByID implements CustomerRepository.
 func (c *customerRepository) FindByID(ctx context.Context, id uint64) (*domain.Customer, error) {
 	var customer model.Customer
@@ -28,25 +44,14 @@ func (c *customerRepository) FindByID(ctx context.Context, id uint64) (*domain.C
 }
 
 // FindByNIK implements CustomerRepository.
-func (c *customerRepository) FindByNIK(ctx context.Context, nik string, lock bool) (*domain.Customer, error) {
+func (c *customerRepository) FindByNIK(ctx context.Context, nik string) (*domain.Customer, error) {
 	var customer model.Customer
 
-	if lock {
-		// Menggunakan Clauses(clause.Locking{Strength: "UPDATE"}) untuk SELECT ... FOR UPDATE
-		err := c.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).Where("nik = ?", nik).First(&customer).Error
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, nil
-			}
-			return nil, err
+	if err := c.db.WithContext(ctx).Where("nik = ?", nik).First(&customer).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
 		}
-	} else {
-		if err := c.db.WithContext(ctx).Where("nik = ?", nik).First(&customer).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, nil
-			}
-			return nil, err
-		}
+		return nil, err
 	}
 
 	return model.CustomerToEntity(customer), nil
@@ -82,8 +87,8 @@ func (c *customerRepository) FindPaginated(ctx context.Context, params domain.Pa
 	return model.CustomersToEntity(customers), total, nil
 }
 
-// Save implements CustomerRepository.
-func (c *customerRepository) Save(ctx context.Context, customer *domain.Customer) error {
+// Create implements CustomerRepository.
+func (c *customerRepository) CreateCustomer(ctx context.Context, customer *domain.Customer) error {
 	data := model.CustomerFromEntity(customer)
 	return c.db.WithContext(ctx).Create(&data).Error
 }

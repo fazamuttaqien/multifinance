@@ -7,106 +7,154 @@ import (
 	"github.com/fazamuttaqien/multifinance/domain"
 )
 
-type mockCustomerRepository struct {
+// Mock Customer Repository
+type MockCustomerRepository struct {
 	// Fields to control mock behavior
-	MockFindPaginatedData  []domain.Customer
-	MockFindPaginatedTotal int64
-	MockFindByIDData       *domain.Customer
-	MockError              error
+	MockFindPaginatedData     []domain.Customer
+	MockFindPaginatedTotal    int64
+	MockFindByIDData          *domain.Customer
+	MockFindByNIKData         *domain.Customer
+	MockFindByNIKWithLockData *domain.Customer
+	MockError                 error
 
 	// Fields to capture calls
-	FindPaginatedCalledWith domain.Params
-	FindByIDCalledWith      uint64
-	UpdateCalledWith        *domain.Customer
+	FindPaginatedCalledWith     domain.Params
+	FindByIDCalledWith          uint64
+	FindByNIKCalledWith         string
+	FindByNIKWithLockCalledWith string
+	UpdateCalledWith            *domain.Customer
+	CreateCalledWith            *domain.Customer
 }
 
-func (m *mockCustomerRepository) FindPaginated(ctx context.Context, params domain.Params) ([]domain.Customer, int64, error) {
+func NewMockCustomerRepository() *MockCustomerRepository {
+	return &MockCustomerRepository{}
+}
+
+func (m *MockCustomerRepository) FindPaginated(ctx context.Context, params domain.Params) ([]domain.Customer, int64, error) {
 	m.FindPaginatedCalledWith = params
 	return m.MockFindPaginatedData, m.MockFindPaginatedTotal, m.MockError
 }
 
-func (m *mockCustomerRepository) FindByID(ctx context.Context, id uint64) (*domain.Customer, error) {
-	m.FindByIDCalledWith = id
-	if m.MockFindByIDData != nil && m.MockFindByIDData.ID == id {
-		return m.MockFindByIDData, m.MockError
-	}
+func (m *MockCustomerRepository) FindByID(ctx context.Context, id uint64) (*domain.Customer, error) {
+	// m.FindByIDCalledWith = id
+	// if m.MockFindByIDData != nil && m.MockFindByIDData.ID == id {
+	// 	return m.MockFindByIDData, m.MockError
+	// }
 
-	if m.MockError != nil {
-		return nil, m.MockError
-	}
-	return nil, nil
+	// if m.MockError != nil {
+	// 	return nil, m.MockError
+	// }
+	// return nil, nil
+
+	m.FindByIDCalledWith = id
+	return m.MockFindByIDData, m.MockError
 }
 
-func (m *mockCustomerRepository) Update(ctx context.Context, customer *domain.Customer) error {
-	m.UpdateCalledWith = customer
+func (m *MockCustomerRepository) CreateCustomer(ctx context.Context, customer *domain.Customer) error {
+	m.CreateCalledWith = customer
 	return m.MockError
 }
 
-func (m *mockCustomerRepository) FindByNIK(ctx context.Context, nik string, lock bool) (*domain.Customer, error) {
+// func (m *MockCustomerRepository) Update(ctx context.Context, customer *domain.Customer) error {
+// 	m.UpdateCalledWith = customer
+// 	return m.MockError
+// }
+
+func (m *MockCustomerRepository) FindByNIK(ctx context.Context, nik string) (*domain.Customer, error) {
 	return nil, nil
 }
 
-func (m *mockCustomerRepository) Save(ctx context.Context, customer *domain.Customer) error {
-	return nil
+func (m *MockCustomerRepository) FindByNIKWithLock(ctx context.Context, nik string) (*domain.Customer, error) {
+	m.FindByNIKWithLockCalledWith = nik
+	return m.MockFindByNIKWithLockData, m.MockError
 }
 
-type mockMediaRepository struct {
+// Mock Media Repository
+type MockMediaRepository struct {
 	MockUploadImageURL   string
 	MockUploadImageError error
 
 	UploadImageCalledWith *multipart.FileHeader
 }
 
-func (m *mockMediaRepository) UploadImage(ctx context.Context, file *multipart.FileHeader) (string, error) {
+func NewMockMediaRepository() *MockMediaRepository {
+	return &MockMediaRepository{}
+}
+
+func (m *MockMediaRepository) UploadImage(ctx context.Context, file *multipart.FileHeader) (string, error) {
 	m.UploadImageCalledWith = file
 	return m.MockUploadImageURL, m.MockUploadImageError
 }
 
-type mockTenorRepository struct {
+// Mock Tenor Repository
+type MockTenorRepository struct {
 	MockFindAllData        []domain.Tenor
 	MockFindByDurationData *domain.Tenor
 	MockError              error
 }
 
-func (m *mockTenorRepository) FindAll(ctx context.Context) ([]domain.Tenor, error) {
+func NewMockTenorRepository() *MockTenorRepository {
+	return &MockTenorRepository{}
+}
+
+func (m *MockTenorRepository) FindAll(ctx context.Context) ([]domain.Tenor, error) {
 	return m.MockFindAllData, m.MockError
 }
-func (m *mockTenorRepository) FindByDuration(ctx context.Context, duration uint8) (*domain.Tenor, error) {
+func (m *MockTenorRepository) FindByDuration(ctx context.Context, duration uint8) (*domain.Tenor, error) {
 	return m.MockFindByDurationData, m.MockError
 }
 
-type mockLimitRepository struct {
+// Mock Limit Repository
+type MockLimitRepository struct {
 	MockFindAllByCustomerIDData []domain.CustomerLimit
+	MockFindByCIDAndTIDData     *domain.CustomerLimit
 	MockError                   error
 }
 
-func (m *mockLimitRepository) FindAllByCustomerID(ctx context.Context, customerID uint64) ([]domain.CustomerLimit, error) {
+func NewMockLimitRepository() *MockLimitRepository {
+	return &MockLimitRepository{}
+}
+
+func (m *MockLimitRepository) FindAllByCustomerID(ctx context.Context, customerID uint64) ([]domain.CustomerLimit, error) {
 	return m.MockFindAllByCustomerIDData, m.MockError
 }
 
-// Metode lain (tidak digunakan dalam tes ini)
-func (m *mockLimitRepository) FindByCustomerIDAndTenorID(ctx context.Context, customerID uint64, tenorID uint) (*domain.CustomerLimit, error) {
-	return nil, nil
-}
-func (m *mockLimitRepository) UpsertMany(ctx context.Context, limits []domain.CustomerLimit) error {
-	return nil
+func (m *MockLimitRepository) FindByCustomerIDAndTenorID(ctx context.Context, customerID uint64, tenorID uint) (*domain.CustomerLimit, error) {
+	return m.MockFindByCIDAndTIDData, m.MockError
 }
 
-// mockTransactionRepository
-type mockTransactionRepository struct {
+func (m *MockLimitRepository) UpsertMany(ctx context.Context, limits []domain.CustomerLimit) error {
+	return m.MockError
+}
+
+// Mock Transaction Repository
+type MockTransactionRepository struct {
 	MockSumActiveData             float64
 	MockFindPaginatedData         []domain.Transaction
 	MockFindPaginatedTotal        int64
 	MockError                     error
+
 	SumActiveCalledWithCustomerID uint64
 	SumActiveCalledWithTenorID    uint
+
+	CreateCalledWith *domain.Transaction
 }
 
-func (m *mockTransactionRepository) SumActivePrincipalByCustomerIDAndTenorID(ctx context.Context, customerID uint64, tenorID uint) (float64, error) {
+func NewMockTransactionRepository() *MockTransactionRepository {
+	return &MockTransactionRepository{}
+}
+
+func (m *MockTransactionRepository) SumActivePrincipalByCustomerIDAndTenorID(ctx context.Context, customerID uint64, tenorID uint) (float64, error) {
 	m.SumActiveCalledWithCustomerID = customerID
 	m.SumActiveCalledWithTenorID = tenorID
 	return m.MockSumActiveData, m.MockError
 }
-func (m *mockTransactionRepository) FindPaginatedByCustomerID(ctx context.Context, customerID uint64, params domain.Params) ([]domain.Transaction, int64, error) {
+
+func (m *MockTransactionRepository) FindPaginatedByCustomerID(ctx context.Context, customerID uint64, params domain.Params) ([]domain.Transaction, int64, error) {
 	return m.MockFindPaginatedData, m.MockFindPaginatedTotal, m.MockError
+}
+
+func (m *MockTransactionRepository) CreateTransaction(ctx context.Context, tx *domain.Transaction) error {
+	m.CreateCalledWith = tx
+	return m.MockError
 }

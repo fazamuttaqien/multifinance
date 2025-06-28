@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/fazamuttaqien/multifinance/domain"
 	"github.com/fazamuttaqien/multifinance/dto"
@@ -15,21 +16,27 @@ import (
 
 func TestCheckLimit(t *testing.T) {
 	// Arrange - buat instance dari semua mock
-	mockCustomerRepo := &mockCustomerRepository{}
-	mockTenorRepo := &mockTenorRepository{}
-	mockLimitRepo := &mockLimitRepository{}
-	mockTxnRepo := &mockTransactionRepository{}
+	mockCustomerRepository := &MockCustomerRepository{}
+	mockTenorRepository := &MockTenorRepository{}
+	mockLimitRepository := &MockLimitRepository{}
+	mockTxnRepository := &MockTransactionRepository{}
 
 	// Buat instance service dengan semua mock
-	service := service.NewPartnerService(mockCustomerRepo, mockTenorRepo, mockLimitRepo, mockTxnRepo)
+	service := service.NewPartnerService(
+		nil,
+		mockCustomerRepository,
+		mockTenorRepository,
+		mockLimitRepository,
+		mockTxnRepository,
+	)
 
 	// --- Skenario 1: Sukses - Limit Cukup (Approved) ---
 	t.Run("Success - Limit Approved", func(t *testing.T) {
 		// Konfigurasi mock untuk happy path
-		mockCustomerRepo.MockFindByNIKData = &domain.Customer{ID: 2, VerificationStatus: domain.VerificationVerified}
-		mockTenorRepo.MockFindByDurationData = &domain.Tenor{ID: 4}
-		mockLimitRepo.MockFindByCIDAndTIDData = &domain.CustomerLimit{LimitAmount: 10000}
-		mockTxnRepo.MockSumActiveData = 2000 // Pemakaian 2000, sisa 8000
+		mockCustomerRepository.MockFindByNIKData = &domain.Customer{ID: 2, VerificationStatus: domain.VerificationVerified}
+		mockTenorRepository.MockFindByDurationData = &domain.Tenor{ID: 4}
+		mockLimitRepository.MockFindByCIDAndTIDData = &domain.CustomerLimit{LimitAmount: 10000}
+		mockTxnRepository.MockSumActiveData = 2000 // Pemakaian 2000, sisa 8000
 
 		req := dto.CheckLimitRequest{
 			TransactionAmount: 5000, // Amount yang diminta (5000) < sisa limit (8000)
@@ -49,10 +56,10 @@ func TestCheckLimit(t *testing.T) {
 	// --- Skenario 2: Sukses - Limit Tidak Cukup (Rejected) ---
 	t.Run("Success - Limit Insufficient (Rejected)", func(t *testing.T) {
 		// Konfigurasi mock
-		mockCustomerRepo.MockFindByNIKData = &domain.Customer{ID: 2, VerificationStatus: domain.VerificationVerified}
-		mockTenorRepo.MockFindByDurationData = &domain.Tenor{ID: 4}
-		mockLimitRepo.MockFindByCIDAndTIDData = &domain.CustomerLimit{LimitAmount: 10000}
-		mockTxnRepo.MockSumActiveData = 8000 // Pemakaian 8000, sisa 2000
+		mockCustomerRepository.MockFindByNIKData = &domain.Customer{ID: 2, VerificationStatus: domain.VerificationVerified}
+		mockTenorRepository.MockFindByDurationData = &domain.Tenor{ID: 4}
+		mockLimitRepository.MockFindByCIDAndTIDData = &domain.CustomerLimit{LimitAmount: 10000}
+		mockTxnRepository.MockSumActiveData = 8000 // Pemakaian 8000, sisa 2000
 
 		req := dto.CheckLimitRequest{
 			TransactionAmount: 3000, // Amount yang diminta (3000) > sisa limit (2000)
@@ -71,7 +78,7 @@ func TestCheckLimit(t *testing.T) {
 
 	// --- Skenario 3: Gagal - Customer Tidak Ditemukan ---
 	t.Run("Failure - Customer Not Found", func(t *testing.T) {
-		mockCustomerRepo.MockFindByNIKData = nil // Simulasikan customer tidak ada
+		mockCustomerRepository.MockFindByNIKData = nil // Simulasikan customer tidak ada
 
 		// Act
 		res, err := service.CheckLimit(context.Background(), dto.CheckLimitRequest{})
@@ -84,7 +91,7 @@ func TestCheckLimit(t *testing.T) {
 
 	// --- Skenario 4: Gagal - Customer Belum Terverifikasi ---
 	t.Run("Failure - Customer Not Verified", func(t *testing.T) {
-		mockCustomerRepo.MockFindByNIKData = &domain.Customer{ID: 2, VerificationStatus: domain.VerificationPending}
+		mockCustomerRepository.MockFindByNIKData = &domain.Customer{ID: 2, VerificationStatus: domain.VerificationPending}
 
 		// Act
 		res, err := service.CheckLimit(context.Background(), dto.CheckLimitRequest{})
@@ -97,8 +104,8 @@ func TestCheckLimit(t *testing.T) {
 
 	// --- Skenario 5: Gagal - Tenor Tidak Ditemukan ---
 	t.Run("Failure - Tenor Not Found", func(t *testing.T) {
-		mockCustomerRepo.MockFindByNIKData = &domain.Customer{ID: 2, VerificationStatus: domain.VerificationVerified} // Customer OK
-		mockTenorRepo.MockFindByDurationData = nil                                                                    // Tenor tidak ada
+		mockCustomerRepository.MockFindByNIKData = &domain.Customer{ID: 2, VerificationStatus: domain.VerificationVerified} // Customer OK
+		mockTenorRepository.MockFindByDurationData = nil                                                                    // Tenor tidak ada
 
 		// Act
 		res, err := service.CheckLimit(context.Background(), dto.CheckLimitRequest{})
@@ -111,9 +118,9 @@ func TestCheckLimit(t *testing.T) {
 
 	// --- Skenario 6: Gagal - Limit Belum Ditetapkan ---
 	t.Run("Failure - Limit Not Set", func(t *testing.T) {
-		mockCustomerRepo.MockFindByNIKData = &domain.Customer{ID: 2, VerificationStatus: domain.VerificationVerified} // Customer OK
-		mockTenorRepo.MockFindByDurationData = &domain.Tenor{ID: 4}                                                   // Tenor OK
-		mockLimitRepo.MockFindByCIDAndTIDData = nil                                                                   // Limit tidak ada
+		mockCustomerRepository.MockFindByNIKData = &domain.Customer{ID: 2, VerificationStatus: domain.VerificationVerified} // Customer OK
+		mockTenorRepository.MockFindByDurationData = &domain.Tenor{ID: 4}                                                   // Tenor OK
+		mockLimitRepository.MockFindByCIDAndTIDData = nil                                                                   // Limit tidak ada
 
 		// Act
 		res, err := service.CheckLimit(context.Background(), dto.CheckLimitRequest{})
@@ -127,8 +134,8 @@ func TestCheckLimit(t *testing.T) {
 	// --- Skenario 7: Gagal - Error dari Repository ---
 	t.Run("Failure - Repository Error", func(t *testing.T) {
 		expectedErr := errors.New("database connection failed")
-		mockCustomerRepo.MockFindByNIKData = nil
-		mockCustomerRepo.MockError = expectedErr // Simulasikan error dari DB
+		mockCustomerRepository.MockFindByNIKData = nil
+		mockCustomerRepository.MockError = expectedErr // Simulasikan error dari DB
 
 		// Act
 		res, err := service.CheckLimit(context.Background(), dto.CheckLimitRequest{})
@@ -149,16 +156,29 @@ func TestCreateTransaction(t *testing.T) {
 		// Arrange
 		db := setupTestDB(t)
 
-		customerRepo := repository.NewCustomerRepository(db)
-		tenorRepo := repository.NewTenorRepository(db)
-		limitRepo := repository.NewLimitRepository(db)
-		customerTxnRepo := repository.NewCustomerRepository(db)
-		transactionRepo := repository.NewTransactionRepository(db)
+		customerRepository := repository.NewCustomerRepository(db)
+		tenorRepository := repository.NewTenorRepository(db)
+		limitRepository := repository.NewLimitRepository(db)
+		transactionRepository := repository.NewTransactionRepository(db)
 
-		service := service.NewPartnerService(db, customerRepo, tenorRepo, limitRepo, customerTxnRepo, transactionRepo)
+		service := service.NewPartnerService(
+			db,
+			customerRepository,
+			tenorRepository,
+			limitRepository,
+			transactionRepository,
+		)
 
 		// Seed data yang diperlukan
-		testCustomer := &domain.Customer{ID: 2, NIK: "1234567890123456", VerificationStatus: domain.VerificationVerified, FullName: "Test", BirthDate: time.Now(), KTPPhotoURL: "url", SelfiePhotoURL: "url"}
+		testCustomer := &domain.Customer{
+			ID:                 2,
+			NIK:                "1234567890123456",
+			VerificationStatus: domain.VerificationVerified,
+			FullName:           "Test",
+			BirthDate:          time.Now(),
+			KtpUrl:             "url",
+			SelfieUrl:          "url",
+		}
 		testTenor := &domain.Tenor{ID: 1, DurationMonths: 6}
 		testLimit := &domain.CustomerLimit{CustomerID: 2, TenorID: 1, LimitAmount: 50000}
 
@@ -195,16 +215,30 @@ func TestCreateTransaction(t *testing.T) {
 	t.Run("Failure - Insufficient Limit", func(t *testing.T) {
 		// Arrange
 		db := setupTestDB(t)
-		customerRepo := repository.NewCustomerRepository(db)
-		tenorRepo := repository.NewTenorRepository(db)
-		limitRepo := repository.NewLimitRepository(db)
-		customerTxnRepo := repository.NewCustomerRepository(db)
-		transactionRepo := repository.NewTransactionRepository(db)
 
-		service := service.NewPartnerService(db, customerRepo, tenorRepo, limitRepo, customerTxnRepo, transactionRepo)
+		customerRepository := repository.NewCustomerRepository(db)
+		tenorRepository := repository.NewTenorRepository(db)
+		limitRepository := repository.NewLimitRepository(db)
+		transactionRepository := repository.NewTransactionRepository(db)
+
+		service := service.NewPartnerService(
+			db,
+			customerRepository,
+			tenorRepository,
+			limitRepository,
+			transactionRepository,
+		)
 
 		// Seed data dengan limit yang kecil
-		db.Create(&domain.Customer{ID: 2, NIK: "1234567890123456", VerificationStatus: domain.VerificationVerified, FullName: "Test", BirthDate: time.Now(), KTPPhotoURL: "url", SelfiePhotoURL: "url"})
+		db.Create(&domain.Customer{
+			ID:                 2,
+			NIK:                "1234567890123456",
+			VerificationStatus: domain.VerificationVerified,
+			FullName:           "Test",
+			BirthDate:          time.Now(),
+			KtpUrl:             "url",
+			SelfieUrl:          "url"},
+		)
 		db.Create(&domain.Tenor{ID: 1, DurationMonths: 6})
 		db.Create(&domain.CustomerLimit{CustomerID: 2, TenorID: 1, LimitAmount: 20000})
 
@@ -235,16 +269,29 @@ func TestCreateTransaction(t *testing.T) {
 		// Arrange
 		db := setupTestDB(t)
 
-		customerRepo := repository.NewCustomerRepository(db)
-		tenorRepo := repository.NewTenorRepository(db)
-		limitRepo := repository.NewLimitRepository(db)
-		customerTxnRepo := repository.NewCustomerRepository(db)
-		transactionRepo := repository.NewTransactionRepository(db)
+		customerRepository := repository.NewCustomerRepository(db)
+		tenorRepository := repository.NewTenorRepository(db)
+		limitRepository := repository.NewLimitRepository(db)
+		transactionRepository := repository.NewTransactionRepository(db)
 
-		service := service.NewPartnerService(db, customerRepo, tenorRepo, limitRepo, customerTxnRepo, transactionRepo)
+		service := service.NewPartnerService(
+			db,
+			customerRepository,
+			tenorRepository,
+			limitRepository,
+			transactionRepository,
+		)
 
 		// Seed customer dengan status PENDING
-		db.Create(&domain.Customer{ID: 2, NIK: "1234567890123456", VerificationStatus: domain.VerificationPending, FullName: "Test", BirthDate: time.Now(), KTPPhotoURL: "url", SelfiePhotoURL: "url"})
+		db.Create(&domain.Customer{
+			ID:                 2,
+			NIK:                "1234567890123456",
+			VerificationStatus: domain.VerificationPending,
+			FullName:           "Test",
+			BirthDate:          time.Now(),
+			KtpUrl:             "url",
+			SelfieUrl:          "url"},
+		)
 
 		req := dto.Transaction{NIK: "1234567890123456"}
 
@@ -260,13 +307,19 @@ func TestCreateTransaction(t *testing.T) {
 	t.Run("Failure - Customer Not Found", func(t *testing.T) {
 		// Arrange
 		db := setupTestDB(t)
-		// ... (inisialisasi repo dan service) ...
-		customerRepo := repository.NewCustomerRepository(db)
-		tenorRepo := repository.NewTenorRepository(db)
-		limitRepo := repository.NewLimitRepository(db)
-		customerTxnRepo := repository.NewCustomerRepository(db)
-		transactionRepo := repository.NewTransactionRepository(db)
-		service := service.NewPartnerService(db, customerRepo, tenorRepo, limitRepo, customerTxnRepo, transactionRepo)
+		
+		customerRepository := repository.NewCustomerRepository(db)
+		tenorRepository := repository.NewTenorRepository(db)
+		limitRepository := repository.NewLimitRepository(db)
+		transactionRepository := repository.NewTransactionRepository(db)
+
+		service := service.NewPartnerService(
+			db,
+			customerRepository,
+			tenorRepository,
+			limitRepository,
+			transactionRepository,
+		)
 
 		// Tidak ada customer yang di-seed
 

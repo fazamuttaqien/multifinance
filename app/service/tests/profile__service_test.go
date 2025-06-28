@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/fazamuttaqien/multifinance/domain"
-	"github.com/fazamuttaqien/multifinance/dto"
 	"github.com/fazamuttaqien/multifinance/helper/common"
 	"github.com/fazamuttaqien/multifinance/repository"
 	"github.com/fazamuttaqien/multifinance/service"
@@ -17,8 +16,8 @@ import (
 // UNIT TESTS
 func TestRegister(t *testing.T) {
 	// Arrange
-	mockCustomerRepository := &mockCustomerRepository{}
-	mockMediaRepository := &mockMediaRepository{}
+	mockCustomerRepository := &MockCustomerRepository{}
+	mockMediaRepository := &MockMediaRepository{}
 
 	service := service.NewProfileService(nil, mockCustomerRepository, nil, nil, nil)
 
@@ -71,9 +70,9 @@ func TestRegister(t *testing.T) {
 
 func TestGetMyLimits(t *testing.T) {
 	// Arrange
-	mockLimitRepo := &mockLimitRepository{}
-	mockTenorRepo := &mockTenorRepository{}
-	mockTxnRepo := &mockTransactionRepository{}
+	mockLimitRepo := &MockLimitRepository{}
+	mockTenorRepo := &MockTenorRepository{}
+	mockTxnRepo := &MockTransactionRepository{}
 	service := service.NewProfileService(nil, nil, mockLimitRepo, mockTenorRepo, mockTxnRepo)
 
 	t.Run("Success with calculated remaining limit", func(t *testing.T) {
@@ -109,13 +108,13 @@ func TestGetMyLimits(t *testing.T) {
 
 func TestGetMyTransactions(t *testing.T) {
 	// Arrange
-	mockTxnRepo := &mockTransactionRepository{}
-	service := NewService(nil, nil, nil, nil, nil, mockTxnRepo)
+	mockTxnRepository := &MockTransactionRepository{}
+	service := service.NewProfileService(nil, nil, nil, nil, mockTxnRepository)
 
 	t.Run("Success with pagination", func(t *testing.T) {
 		// Konfigurasi mock
-		mockTxnRepo.MockFindPaginatedData = []domain.Transaction{{ID: 1, AssetName: "Laptop"}}
-		mockTxnRepo.MockFindPaginatedTotal = 11 // Total ada 11 data
+		mockTxnRepository.MockFindPaginatedData = []domain.Transaction{{ID: 1, AssetName: "Laptop"}}
+		mockTxnRepository.MockFindPaginatedTotal = 11 // Total ada 11 data
 
 		params := domain.Params{Page: 2, Limit: 5}
 
@@ -140,7 +139,10 @@ func TestUpdateProfile(t *testing.T) {
 
 	// Buat data customer untuk diupdate
 	testCustomer := &domain.Customer{
-		ID: 10, NIK: "333", FullName: "Old Name", Salary: 5000,
+		ID:        10,
+		NIK:       "333",
+		FullName:  "Old Name",
+		Salary:    5000,
 		BirthDate: time.Now(),
 	}
 	db.Create(testCustomer)

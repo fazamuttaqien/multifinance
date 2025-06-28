@@ -89,8 +89,8 @@ func seedAdmin(db *gorm.DB) {
 			BirthPlace:         "System",
 			BirthDate:          time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
 			Salary:             99999999,
-			KTPPhotoURL:        "https://via.placeholder.com/150",
-			SelfiePhotoURL:     "https://via.placeholder.com/150",
+			KtpPhotoUrl:        "https://via.placeholder.com/150",
+			SelfiePhotoUrl:     "https://via.placeholder.com/150",
 			VerificationStatus: model.VerificationVerified,
 		}
 
@@ -110,10 +110,12 @@ func seedTenors(db *gorm.DB) {
 
 	tenors := []model.Tenor{
 		{ID: 1, DurationMonths: 1, Description: "1 Months"},
-		{ID: 2, DurationMonths: 3, Description: "3 Months"},
-		{ID: 3, DurationMonths: 6, Description: "6 Months"},
-		{ID: 4, DurationMonths: 12, Description: "12 Months"},
-		{ID: 5, DurationMonths: 24, Description: "24 Months"},
+		{ID: 2, DurationMonths: 2, Description: "2 Months"},
+		{ID: 3, DurationMonths: 3, Description: "3 Months"},
+		{ID: 4, DurationMonths: 6, Description: "6 Months"},
+		{ID: 5, DurationMonths: 9, Description: "9 Months"},
+		{ID: 6, DurationMonths: 12, Description: "12 Months"},
+		{ID: 7, DurationMonths: 24, Description: "24 Months"},
 	}
 
 	// Menggunakan OnConflict untuk mencegah error jika data sudah ada (UPSERT)

@@ -41,20 +41,20 @@ func (h *ProfileHandler) Register(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return common.ErrorResponse(c, fiber.StatusBadRequest, "Invalid request body")
 	}
-
-	// if err := h.validate.Struct(&req); err != nil {
-	// 	return common.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
-	// }
-
+	
 	// Get files from form
 	ktpPhotoFile, err := c.FormFile("ktp_photo")
 	if err != nil {
 		return common.ErrorResponse(c, fiber.StatusBadRequest, "KTP photo is a required form field")
 	}
-
+	
 	selfiePhotoFile, err := c.FormFile("selfie_photo")
 	if err != nil {
 		return common.ErrorResponse(c, fiber.StatusBadRequest, "Selfie photo is a required form field")
+	}
+
+	if err := h.validate.Struct(&req); err != nil {
+		return common.ErrorResponse(c, fiber.StatusBadRequest, err.Error())
 	}
 
 	// Create context with timeout

@@ -25,7 +25,7 @@ type profileService struct {
 // Register implements ProfileUsecases.
 func (p *profileService) Register(ctx context.Context, req *domain.Customer) (*domain.Customer, error) {
 	// 1. Cek duplikasi NIK
-	existingCustomer, err := p.customerRepository.FindByNIK(ctx, req.NIK, false)
+	existingCustomer, err := p.customerRepository.FindByNIK(ctx, req.NIK)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (p *profileService) Register(ctx context.Context, req *domain.Customer) (*d
 	}
 
 	// 5. Simpan ke database
-	if err := p.customerRepository.Save(ctx, newCustomer); err != nil {
+	if err := p.customerRepository.CreateCustomer(ctx, newCustomer); err != nil {
 		return nil, err
 	}
 
