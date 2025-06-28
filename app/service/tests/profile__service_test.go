@@ -70,23 +70,28 @@ func TestRegister(t *testing.T) {
 
 func TestGetMyLimits(t *testing.T) {
 	// Arrange
-	mockLimitRepo := &MockLimitRepository{}
-	mockTenorRepo := &MockTenorRepository{}
-	mockTxnRepo := &MockTransactionRepository{}
-	service := service.NewProfileService(nil, nil, mockLimitRepo, mockTenorRepo, mockTxnRepo)
+	mockLimitRepository := &MockLimitRepository{}
+	mockTenorRepository := &MockTenorRepository{}
+	mockTxnRepository := &MockTransactionRepository{}
+	service := service.NewProfileService(
+		nil, nil,
+		mockLimitRepository,
+		mockTenorRepository,
+		mockTxnRepository,
+	)
 
 	t.Run("Success with calculated remaining limit", func(t *testing.T) {
 		// Konfigurasi mock
 		customerID := uint64(10)
-		mockLimitRepo.MockFindAllByCustomerIDData = []domain.CustomerLimit{
+		mockLimitRepository.MockFindAllByCustomerIDData = []domain.CustomerLimit{
 			{CustomerID: customerID, TenorID: 1, LimitAmount: 1000},
 			{CustomerID: customerID, TenorID: 2, LimitAmount: 5000},
 		}
-		mockTenorRepo.MockFindAllData = []domain.Tenor{
+		mockTenorRepository.MockFindAllData = []domain.Tenor{
 			{ID: 1, DurationMonths: 3},
 			{ID: 2, DurationMonths: 6},
 		}
-		mockTxnRepo.MockSumActiveData = 250.0
+		mockTxnRepository.MockSumActiveData = 250.0
 
 		// Act
 		limits, err := service.GetMyLimits(context.Background(), customerID)
@@ -134,6 +139,7 @@ func TestGetMyTransactions(t *testing.T) {
 func TestUpdateProfile(t *testing.T) {
 	// Arrange
 	db := setupTestDB(t)
+	
 	customerRepository := repository.NewCustomerRepository(db)
 	service := service.NewProfileService(db, customerRepository, nil, nil, nil)
 

@@ -13,11 +13,26 @@ import (
 	"github.com/fazamuttaqien/multifinance/model"
 	"github.com/fazamuttaqien/multifinance/repository"
 	"gorm.io/gorm"
+
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap"
 )
 
 type adminService struct {
 	db                 *gorm.DB
 	customerRepository repository.CustomerRepository
+
+	meter  metric.Meter
+	tracer trace.Tracer
+	log    *zap.Logger
+
+	// operationDuration metric.Float64Histogram
+	// operationCount    metric.Int64Counter
+	// errorCount        metric.Int64Counter
+	// profilesCreated   metric.Int64Counter
+	// profilesRetrieved metric.Int64Counter
+	// profilesUpdated   metric.Int64Counter
 }
 
 // SetLimits implements AdminUsecases.
@@ -30,7 +45,7 @@ func (a *adminService) SetLimits(ctx context.Context, customerID uint64, req dto
 	defer tx.Rollback()
 
 	// 1. Validasi customer
-	customerTx := repository.NewCustomerRepository(tx)
+	customerTx := repository.NewCustomerRepository(tx, a.meter, a.tracer, a.log)
 	customer, err := customerTx.FindByID(ctx, customerID)
 	if err != nil {
 		return fmt.Errorf("error finding customer: %w", err)

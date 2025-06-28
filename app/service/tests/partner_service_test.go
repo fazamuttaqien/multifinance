@@ -55,8 +55,11 @@ func TestCheckLimit(t *testing.T) {
 
 	// --- Skenario 2: Sukses - Limit Tidak Cukup (Rejected) ---
 	t.Run("Success - Limit Insufficient (Rejected)", func(t *testing.T) {
-		// Konfigurasi mock
-		mockCustomerRepository.MockFindByNIKData = &domain.Customer{ID: 2, VerificationStatus: domain.VerificationVerified}
+
+		mockCustomerRepository.MockFindByNIKData = &domain.Customer{
+			ID:                 2,
+			VerificationStatus: domain.VerificationVerified,
+		}
 		mockTenorRepository.MockFindByDurationData = &domain.Tenor{ID: 4}
 		mockLimitRepository.MockFindByCIDAndTIDData = &domain.CustomerLimit{LimitAmount: 10000}
 		mockTxnRepository.MockSumActiveData = 8000 // Pemakaian 8000, sisa 2000
@@ -91,7 +94,10 @@ func TestCheckLimit(t *testing.T) {
 
 	// --- Skenario 4: Gagal - Customer Belum Terverifikasi ---
 	t.Run("Failure - Customer Not Verified", func(t *testing.T) {
-		mockCustomerRepository.MockFindByNIKData = &domain.Customer{ID: 2, VerificationStatus: domain.VerificationPending}
+		mockCustomerRepository.MockFindByNIKData = &domain.Customer{
+			ID:                 2,
+			VerificationStatus: domain.VerificationPending,
+		}
 
 		// Act
 		res, err := service.CheckLimit(context.Background(), dto.CheckLimitRequest{})
@@ -104,8 +110,11 @@ func TestCheckLimit(t *testing.T) {
 
 	// --- Skenario 5: Gagal - Tenor Tidak Ditemukan ---
 	t.Run("Failure - Tenor Not Found", func(t *testing.T) {
-		mockCustomerRepository.MockFindByNIKData = &domain.Customer{ID: 2, VerificationStatus: domain.VerificationVerified} // Customer OK
-		mockTenorRepository.MockFindByDurationData = nil                                                                    // Tenor tidak ada
+		mockCustomerRepository.MockFindByNIKData = &domain.Customer{
+			ID:                 2,
+			VerificationStatus: domain.VerificationVerified,
+		} // Customer OK
+		mockTenorRepository.MockFindByDurationData = nil // Tenor tidak ada
 
 		// Act
 		res, err := service.CheckLimit(context.Background(), dto.CheckLimitRequest{})
@@ -118,9 +127,12 @@ func TestCheckLimit(t *testing.T) {
 
 	// --- Skenario 6: Gagal - Limit Belum Ditetapkan ---
 	t.Run("Failure - Limit Not Set", func(t *testing.T) {
-		mockCustomerRepository.MockFindByNIKData = &domain.Customer{ID: 2, VerificationStatus: domain.VerificationVerified} // Customer OK
-		mockTenorRepository.MockFindByDurationData = &domain.Tenor{ID: 4}                                                   // Tenor OK
-		mockLimitRepository.MockFindByCIDAndTIDData = nil                                                                   // Limit tidak ada
+		mockCustomerRepository.MockFindByNIKData = &domain.Customer{
+			ID:                 2,
+			VerificationStatus: domain.VerificationVerified,
+		} // Customer OK
+		mockTenorRepository.MockFindByDurationData = &domain.Tenor{ID: 4} // Tenor OK
+		mockLimitRepository.MockFindByCIDAndTIDData = nil                 // Limit tidak ada
 
 		// Act
 		res, err := service.CheckLimit(context.Background(), dto.CheckLimitRequest{})

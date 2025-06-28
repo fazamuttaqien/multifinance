@@ -10,6 +10,10 @@ import (
 	"github.com/fazamuttaqien/multifinance/helper/common"
 	"github.com/fazamuttaqien/multifinance/repository"
 	"gorm.io/gorm"
+
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap"
 )
 
 type partnerService struct {
@@ -18,6 +22,17 @@ type partnerService struct {
 	tenorRepository       repository.TenorRepository
 	limitRepository       repository.LimitRepository
 	transactionRepository repository.TransactionRepository
+
+	meter  metric.Meter
+	tracer trace.Tracer
+	log    *zap.Logger
+
+	// operationDuration metric.Float64Histogram
+	// operationCount    metric.Int64Counter
+	// errorCount        metric.Int64Counter
+	// profilesCreated   metric.Int64Counter
+	// profilesRetrieved metric.Int64Counter
+	// profilesUpdated   metric.Int64Counter
 }
 
 // CreateTransaction implements PartnerServices.
@@ -30,7 +45,7 @@ func (p *partnerService) CreateTransaction(ctx context.Context, req dto.CreateTr
 	defer tx.Rollback()
 
 	// 1. Mendapatkan Customer berdasarkan NIK dan KUNCI barisnya untuk mencegah race condition
-	customerTx := repository.NewCustomerRepository(tx)
+	customerTx := repository.NewCustomerRepository(tx, p.meter, p.tracer, p.log)
 	lockedCustomer, err := customerTx.FindByNIKWithLock(ctx, req.CustomerNIK)
 	if err != nil {
 		return nil, fmt.Errorf("error finding customer: %w", err)
@@ -83,7 +98,7 @@ func (p *partnerService) CreateTransaction(ctx context.Context, req dto.CreateTr
 	totalInterest := req.OTRAmount * 0.02 * float64(req.TenorMonths)
 	totalInstallment := transactionPrincipal + totalInterest
 
-	// 5. Generate Nomor Kontrak
+	// 5. Generate contract number
 	contractNumber := fmt.Sprintf("KTR-%s-%d", time.Now().Format("20060102"), time.Now().UnixNano()%100000)
 
 	// 6. Buat entitas Transaction baru
@@ -96,7 +111,7 @@ func (p *partnerService) CreateTransaction(ctx context.Context, req dto.CreateTr
 		AdminFee:               req.AdminFee,
 		TotalInterest:          totalInterest,
 		TotalInstallmentAmount: totalInstallment,
-		Status:                 domain.TransactionActive, // Langsung aktif
+		Status:                 domain.TransactionActive,
 	}
 
 	// 7. Simpan transaksi baru ke DB
@@ -174,6 +189,10 @@ func NewPartnerService(
 	tenorRepository repository.TenorRepository,
 	limitRepository repository.LimitRepository,
 	transactionRepository repository.TransactionRepository,
+
+	meter metric.Meter,
+	tracer trace.Tracer,
+	log *zap.Logger,
 ) PartnerServices {
 	return &partnerService{
 		db:                    db,
@@ -181,5 +200,15 @@ func NewPartnerService(
 		tenorRepository:       tenorRepository,
 		limitRepository:       limitRepository,
 		transactionRepository: transactionRepository,
+
+		meter:  meter,
+		tracer: tracer,
+		log:    log,
+		// operationDuration: operationDuration,
+		// operationCount:    operationCount,
+		// errorCount:        errorCount,
+		// profilesCreated:   profilesCreated,
+		// profilesRetrieved: profilesRetrieved,
+		// profilesUpdated:   profilesUpdated,
 	}
 }
