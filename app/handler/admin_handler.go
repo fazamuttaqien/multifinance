@@ -40,7 +40,7 @@ func (h *AdminHandler) GetCustomerByID(c *fiber.Ctx) error {
 		})
 	}
 
-	customer, err := h.adminService.GetCustomerByNIK(c.Context(), customerID)
+	customer, err := h.adminService.GetCustomerByID(c.Context(), customerID)
 	if err != nil {
 		if errors.Is(err, common.ErrCustomerNotFound) {
 			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})

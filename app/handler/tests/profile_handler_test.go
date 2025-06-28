@@ -21,7 +21,7 @@ func TestProfileHandler_Register(t *testing.T) {
 
 	handler := handler.NewProfileHandler(mockProfileService, mockCloudinary)
 
-	app := setupAppWithAuth(handler)
+	app := setupProfileApp(handler)
 
 	// Data dummy untuk request
 	fields := map[string]string{
@@ -94,7 +94,7 @@ func TestProfileHandler_GetMyProfile(t *testing.T) {
 	// Arrange
 	mockService := &mockProfileService{}
 	handler := handler.NewProfileHandler(mockService, nil)
-	app := setupAppWithAuth(handler)
+	app := setupProfileApp(handler)
 
 	t.Run("Success", func(t *testing.T) {
 		// Konfigurasi mock
@@ -108,6 +108,7 @@ func TestProfileHandler_GetMyProfile(t *testing.T) {
 
 		// Assert
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
 		var customer domain.Customer
 		json.NewDecoder(resp.Body).Decode(&customer)
 		assert.Equal(t, uint(2), customer.ID)
@@ -119,7 +120,7 @@ func TestProfileHandler_UpdateMyProfile(t *testing.T) {
 	// Arrange
 	mockService := &mockProfileService{}
 	handler := handler.NewProfileHandler(mockService, nil)
-	app := setupAppWithAuth(handler)
+	app := setupProfileApp(handler)
 
 	t.Run("Success", func(t *testing.T) {
 		// Konfigurasi mock
@@ -146,7 +147,7 @@ func TestProfileHandler_GetMyLimits(t *testing.T) {
 	// Arrange
 	mockService := &mockProfileService{}
 	handler := handler.NewProfileHandler(mockService, nil)
-	app := setupAppWithAuth(handler)
+	app := setupProfileApp(handler)
 
 	t.Run("Success", func(t *testing.T) {
 		// Konfigurasi mock untuk mengembalikan data limit
@@ -213,7 +214,7 @@ func TestProfileHandler_GetMyTransactions(t *testing.T) {
 	// Arrange
 	mockService := &mockProfileService{}
 	handler := handler.NewProfileHandler(mockService, nil)
-	app := setupAppWithAuth(handler)
+	app := setupProfileApp(handler)
 
 	t.Run("Success with query parameters", func(t *testing.T) {
 		// Konfigurasi mock

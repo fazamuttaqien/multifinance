@@ -27,7 +27,11 @@ type PartnerServices interface {
 
 type AdminServices interface {
 	SetLimits(ctx context.Context, customerID uint64, req dto.SetLimits) error
-	GetCustomerByNIK(ctx context.Context, customerID uint64) (*domain.Customer, error)
+	GetCustomerByID(ctx context.Context, customerID uint64) (*domain.Customer, error)
 	ListCustomers(ctx context.Context, params domain.Params) (*domain.Paginated, error)
 	VerifyCustomer(ctx context.Context, customerID uint64, req dto.Verification) error
+}
+
+type CloudinaryService interface {
+	UploadImage(ctx context.Context, file *multipart.FileHeader, folder string) (string, error)
 }

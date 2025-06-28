@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func setupAppWithAuth(handler *handler.ProfileHandler) *fiber.App {
+func setupProfileApp(handler *handler.ProfileHandler) *fiber.App {
 	app := fiber.New()
 
 	// Middleware dummy untuk menyetel customerID
@@ -27,6 +27,33 @@ func setupAppWithAuth(handler *handler.ProfileHandler) *fiber.App {
 	app.Put("/profile", authMiddleware, handler.UpdateMyProfile)
 	app.Get("/limits", authMiddleware, handler.GetMyLimits)
 	app.Get("/transactions", authMiddleware, handler.GetMyTransactions)
+
+	return app
+}
+
+func setupAdminApp(handler *handler.AdminHandler) *fiber.App {
+	app := fiber.New()
+
+	// Middleware admin dummy (tidak diperlukan karena tidak ada pengecekan auth di handler ini)
+	// tapi kita tetap buat grupnya untuk konsistensi path
+	adminGroup := app.Group("/admin")
+
+	adminGroup.Get("/customers", handler.ListCustomers)
+	adminGroup.Get("/customers/:customerId", handler.GetCustomerByID)
+	adminGroup.Post("/customers/:customerId/verify", handler.VerifyCustomer)
+	adminGroup.Post("/customers/:customerId/limits", handler.SetLimits)
+
+	return app
+}
+
+func setupPartnerApp(handler *handler.PartnerHandler) *fiber.App {
+	app := fiber.New()
+
+	// Tidak perlu auth middleware untuk partner (diasumsikan auth lain seperti API Key)
+	partnerGroup := app.Group("/partners")
+
+	partnerGroup.Post("/check-limit", handler.CheckLimit)
+	partnerGroup.Post("/transactions", handler.CreateTransaction)
 
 	return app
 }
@@ -45,7 +72,7 @@ func createMultipartRequest(t *testing.T, fields map[string]string, files map[st
 	for key, path := range files {
 		part, err := writer.CreateFormFile(key, path)
 		assert.NoError(t, err)
-		
+
 		// Tulis konten dummy ke file part
 		_, err = io.WriteString(part, "dummy content")
 		assert.NoError(t, err)

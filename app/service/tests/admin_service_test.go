@@ -78,7 +78,7 @@ func TestGetCustomerByID_Admin(t *testing.T) {
 
 		// Act
 		// Service GetProfile digunakan oleh handler GetCustomerByID
-		result, err := service.GetCustomerByNIK(context.Background(), 5)
+		result, err := service.GetCustomerByID(context.Background(), 5)
 
 		// Assert
 		assert.NoError(t, err)
@@ -94,7 +94,7 @@ func TestGetCustomerByID_Admin(t *testing.T) {
 		mockRepository.MockError = nil
 
 		// Act
-		result, err := service.GetCustomerByNIK(context.Background(), 99)
+		result, err := service.GetCustomerByID(context.Background(), 99)
 
 		// Assert
 		assert.Error(t, err)

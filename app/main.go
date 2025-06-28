@@ -47,7 +47,7 @@ func main() {
 	stats := infra.GetStats(db)
 	log.Printf("Database stats: %+v", stats)
 
-	cloudinaryService, err := cloudinary.NewCloudinaryService(cloudinary.CloudinaryConfig{
+	cloudinaryService, err := cloudinary.InitCloudinary(cloudinary.CloudinaryConfig{
 		CloudName: os.Getenv("CLOUDINARY_CLOUD_NAME"),
 		APIKey:    os.Getenv("CLOUDINARY_API_KEY"),
 		APISecret: os.Getenv("CLOUDINARY_API_SECRET"),

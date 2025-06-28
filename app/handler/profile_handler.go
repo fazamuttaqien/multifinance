@@ -20,12 +20,12 @@ import (
 type ProfileHandler struct {
 	profileService    service.ProfileServices
 	validate          *validator.Validate
-	cloudinaryService *cloudinary.CloudinaryService
+	cloudinaryService service.CloudinaryService
 }
 
 func NewProfileHandler(
 	profileService service.ProfileServices,
-	cloudinaryService *cloudinary.CloudinaryService,
+	cloudinaryService service.CloudinaryService,
 ) *ProfileHandler {
 	return &ProfileHandler{
 		profileService:    profileService,
