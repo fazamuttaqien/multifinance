@@ -22,8 +22,8 @@ import (
 type TransactionRepositoryTestSuite struct {
 	suite.Suite
 	db                    *gorm.DB
-	transactionRepository repository.TransactionRepository
 	ctx                   context.Context
+	transactionRepository repository.TransactionRepository
 
 	// Test data
 	customerID uint64

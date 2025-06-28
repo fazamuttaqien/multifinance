@@ -2,23 +2,25 @@ package repository_test
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/fazamuttaqien/multifinance/domain"
-	"github.com/fazamuttaqien/multifinance/helper/common"
 	"github.com/fazamuttaqien/multifinance/model"
 	"github.com/fazamuttaqien/multifinance/repository"
 
+	"github.com/docker/docker/api/types/container"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/wait"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
-	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -27,6 +29,7 @@ type CustomerRepositoryTestSuite struct {
 	suite.Suite
 	db                 *gorm.DB
 	ctx                context.Context
+	container          testcontainers.Container
 	meter              metric.Meter
 	tracer             trace.Tracer
 	log                *zap.Logger
@@ -34,50 +37,48 @@ type CustomerRepositoryTestSuite struct {
 }
 
 func (suite *CustomerRepositoryTestSuite) SetupSuite() {
-	// Setup database connection untuk testing
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8mb4&parseTime=True&loc=Local",
-		common.GetEnv("DB_USER", "root"),
-		common.GetEnv("DB_PASSWORD", ""),
-		common.GetEnv("DB_HOST", "localhost"),
-		common.GetEnv("DB_PORT", "3306"),
-	)
+	suite.ctx = context.Background()
 
-	db, err := sql.Open("mysql", dsn)
+	req := testcontainers.ContainerRequest{
+		Image: "alpine:latest",
+		Cmd:   []string{"tail", "-f", "/dev/null"},
+		// Files: []testcontainers.ContainerFile{
+		// 	{
+		// 		HostFilePath: "/tmp/testdb",
+		// 		ContainerFilePath: "/data",
+		// 		FileMode: 0644,
+		// 	},
+		// },
+		HostConfigModifier: func(hc *container.HostConfig) {
+			hc.Binds = []string{"/tmp/testdb:/data"} // bind host to container
+		},
+		WaitingFor: wait.ForLog(""), // optional: wait strategy
+	}
+
+	container, err := testcontainers.GenericContainer(suite.ctx, testcontainers.GenericContainerRequest{
+		ContainerRequest: req,
+		Started:          true,
+	})
 	require.NoError(suite.T(), err)
+	suite.container = container
 
-	testDBName := "loan_test"
+	// Setup SQLite database connection
+	// Use temporary directory for test database
+	tmpDir := suite.T().TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
 
-	// Drop database jika sudah ada
-	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", testDBName))
-	require.NoError(suite.T(), err)
-
-	// Buat database untuk testing
-	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", testDBName))
-	require.NoError(suite.T(), err)
-
-	// Connect ke test database
-	testDSN := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		common.GetEnv("DB_USER", "root"),
-		common.GetEnv("DB_PASSWORD", ""),
-		common.GetEnv("DB_HOST", "localhost"),
-		common.GetEnv("DB_PORT", "3306"),
-		testDBName,
-	)
-
-	gormDB, err := gorm.Open(mysql.Open(testDSN), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent), // Silent mode untuk testing
+	gormDB, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(suite.T(), err)
 
 	suite.db = gormDB
-	suite.ctx = context.Background()
 
-	// Auto migrate models
 	err = suite.db.AutoMigrate(
 		&model.Customer{},
 		&model.Tenor{},
-		&model.CustomerLimit{},
 		&model.Transaction{},
+		&model.CustomerLimit{},
 	)
 	require.NoError(suite.T(), err)
 
@@ -86,19 +87,17 @@ func (suite *CustomerRepositoryTestSuite) SetupSuite() {
 }
 
 func (suite *CustomerRepositoryTestSuite) TearDownSuite() {
-	// Drop test database
-	testDBName := "multifinance_test"
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8mb4&parseTime=True&loc=Local",
-		common.GetEnv("DB_USER", "root"),
-		common.GetEnv("DB_PASSWORD", ""),
-		common.GetEnv("DB_HOST", "localhost"),
-		common.GetEnv("DB_PORT", "3306"),
-	)
+	// Close database connection
+	if suite.db != nil {
+		sqlDB, err := suite.db.DB()
+		if err == nil {
+			sqlDB.Close()
+		}
+	}
 
-	db, err := sql.Open("mysql", dsn)
-	if err == nil {
-		db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", testDBName))
-		db.Close()
+	// Terminate container
+	if suite.container != nil {
+		suite.container.Terminate(suite.ctx)
 	}
 }
 

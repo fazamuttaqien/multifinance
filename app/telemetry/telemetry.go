@@ -221,7 +221,7 @@ func NewLoggerProvider(ctx context.Context, conn *grpc.ClientConn, res *sdkresou
 	return loggerProvider, nil
 }
 
-// NewMeterProvider 
+// NewMeterProvider
 func NewMeterProvider(ctx context.Context, conn *grpc.ClientConn, res *sdkresource.Resource, cfg *config.Config) (*sdkmetric.MeterProvider, error) {
 	metricExporter, err := otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithGRPCConn(conn))
 	if err != nil {
@@ -265,7 +265,7 @@ func NewZapLogger(cfg *config.Config, loggerProvider *sdklog.LoggerProvider) *za
 	}
 
 	var encoderConfig zapcore.EncoderConfig
-	if cfg.DEV_MODE {
+	if cfg.DEVELOPMENT_MODE {
 		encoderConfig = zap.NewDevelopmentEncoderConfig()
 	} else {
 		encoderConfig = zap.NewProductionEncoderConfig()
@@ -285,7 +285,7 @@ func NewZapLogger(cfg *config.Config, loggerProvider *sdklog.LoggerProvider) *za
 	}
 
 	var encoder zapcore.Encoder
-	if cfg.DEV_MODE {
+	if cfg.DEVELOPMENT_MODE {
 		encoder = zapcore.NewConsoleEncoder(encoderConfig)
 	} else {
 		encoder = zapcore.NewJSONEncoder(encoderConfig)
