@@ -175,9 +175,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure Git for private modules
-        run: git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
-
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
@@ -188,7 +185,8 @@ jobs:
 
       - name: Run Go security scanner (gosec)
         run: |
-          go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+          # Diperbarui untuk menggunakan pustaka github.com/securego/gosec
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
           gosec -fmt json -out gosec-report.json ./...
 
       - name: Run Go vulnerability check (govulncheck)
