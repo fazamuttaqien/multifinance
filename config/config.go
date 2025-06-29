@@ -26,6 +26,8 @@ type Config struct {
 	MYSQL_USERNAME              string
 	MYSQL_PASSWORD              string
 	MYSQL_DBNAME                string
+	REDIS_ADDRESS               string
+	REDIS_PASSWORD              string
 	JWT_SECRET_KEY              string
 	SHUTDOWN_TIMEOUT            time.Duration
 }
@@ -79,6 +81,8 @@ func LoadConfig() (*Config, error) {
 		MYSQL_USERNAME:              Env("MYSQL_USERNAME", "root"),
 		MYSQL_PASSWORD:              Env("MYSQL_PASSWORD", ""),
 		MYSQL_DBNAME:                Env("MYSQL_DBNAME", "loan_system"),
+		REDIS_ADDRESS:               Env("REDIS_ADDRESS", "localhost:6379"),
+		REDIS_PASSWORD:              Env("REDIS_PASSWORD", ""),
 		JWT_SECRET_KEY:              Env("JWT_SECRET_KEY", ""),
 		SHUTDOWN_TIMEOUT:            Duration("SHUTDOWN_TIMEOUT", 15*time.Second),
 	}

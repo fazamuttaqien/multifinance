@@ -5,16 +5,18 @@ import (
 	"time"
 
 	"github.com/fazamuttaqien/multifinance/config"
-	"github.com/fazamuttaqien/multifinance/database"
+	mysqldb "github.com/fazamuttaqien/multifinance/infra/mysql"
+	"github.com/fazamuttaqien/multifinance/internal/domain"
 	"github.com/fazamuttaqien/multifinance/middleware"
+	ratelimiter "github.com/fazamuttaqien/multifinance/pkg/rate-limiter"
 	"github.com/fazamuttaqien/multifinance/pkg/telemetry"
 	"github.com/fazamuttaqien/multifinance/presenter"
 
 	"github.com/gofiber/contrib/otelfiber/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/csrf"
 	"github.com/gofiber/fiber/v2/middleware/helmet"
-	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
@@ -26,10 +28,13 @@ func NewRouter(
 	db *gorm.DB,
 	tel *telemetry.OpenTelemetry,
 	cfg *config.Config,
+	limiter *ratelimiter.RateLimiter,
 ) *fiber.App {
 
-	adminAuth := middleware.NewAdminMiddleware(db)
-	customerAuth := middleware.NewCustomerMiddleware(db)
+	jwtAuth := middleware.NewJWTAuthMiddleware(cfg.JWT_SECRET_KEY)
+	requireAdmin := middleware.RequireRole(domain.AdminRole)
+	requireCustomer := middleware.RequireRole(domain.CustomerRole)
+	requirePartner := middleware.RequireRole(domain.PartnerRole)
 
 	app := fiber.New(fiber.Config{
 		BodyLimit:    10 * 1024 * 1024,
@@ -50,32 +55,37 @@ func NewRouter(
 		AllowMethods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
 	}))
 
-	// (Opsional, karena sudah ada Zap)
-	app.Use(logger.New(logger.Config{
-		Format:     "[${time}] ${ip} ${status} - ${latency} ${method} ${path}\n",
-		TimeFormat: "2006-01-02 15:04:05",
-	}))
-
 	app.Use(otelfiber.Middleware(
 		otelfiber.WithTracerProvider(tel.TracerProvider),
 		otelfiber.WithPropagators(otel.GetTextMapPropagator()),
 	))
 
-	// Middleware Kustom untuk Metrik HTTP (jika diaktifkan di config)
-	if !cfg.REQUESTS_METRIC {
+	if cfg.REQUESTS_METRIC {
 		zap.L().Info("Enabling HTTP request metrics middleware")
 		app.Use(middleware.NewOtelMiddleware())
 	} else {
 		zap.L().Info("HTTP request metrics middleware is disabled")
 	}
 
+	csrfProtection := csrf.New(csrf.Config{
+		KeyLookup:      "header:X-CSRF-Token",
+		CookieName:     "csrf_",
+		CookieSameSite: "Strict",
+		CookieHTTPOnly: false,
+		CookieSecure:   false,
+		// CookieSecure:   true,  // for production
+	})
+
 	app.Get("/health", func(c *fiber.Ctx) error {
-		if err := database.Ping(db, c.Context()); err != nil {
-			zap.L().Fatal(err.Error())
-			return err
+		if err := mysqldb.Ping(db, c.Context()); err != nil {
+			zap.L().Error("Health check failed: database ping error", zap.Error(err))
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+				"status": "unhealthy",
+				"error":  "database connection failed",
+			})
 		}
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"status":      fiber.StatusOK,
+			"status":      "healthy",
 			"service":     cfg.SERVICE_NAME,
 			"version":     cfg.SERVICE_VERSION,
 			"environment": cfg.ENVIRONMENT,
@@ -85,18 +95,21 @@ func NewRouter(
 
 	api := app.Group("/api/v1")
 
-	api.Post("/register", presenter.ProfilePresenter.Register)
-	api.Post("/login", presenter.PrivatePresenter.Login)
+	api.Use(limiter.RateLimitMiddleware())
 
-	customersAPI := api.Group("/customers", customerAuth)
+	api.Post("/register", csrfProtection, presenter.ProfilePresenter.Register)
+	api.Post("/login", csrfProtection, presenter.PrivatePresenter.Login)
+	api.Post("/logout", jwtAuth, csrfProtection, presenter.PrivatePresenter.Logout)
+
+	customersAPI := api.Group("/customers", jwtAuth, requireCustomer)
 	{
 		customersAPI.Get("/profile", presenter.ProfilePresenter.GetMyProfile)
-		customersAPI.Put("/profile", presenter.ProfilePresenter.UpdateMyProfile)
+		customersAPI.Put("/profile", csrfProtection, presenter.ProfilePresenter.UpdateMyProfile)
 		customersAPI.Get("/limits", presenter.ProfilePresenter.GetMyLimits)
 		customersAPI.Get("/transactions", presenter.ProfilePresenter.GetMyTransactions)
 	}
 
-	adminAPI := api.Group("/admin", adminAuth)
+	adminAPI := api.Group("/admin", jwtAuth, csrfProtection, requireAdmin)
 
 	adminCustomersAPI := adminAPI.Group("/customers")
 	{
@@ -106,13 +119,12 @@ func NewRouter(
 		adminCustomersAPI.Post("/:customerId/verify", presenter.AdminPresenter.VerifyCustomer)
 	}
 
-	partnerAPI := api.Group("/partners")
+	partnerAPI := api.Group("/partners", jwtAuth, csrfProtection, requirePartner)
 	{
 		partnerAPI.Post("/transactions", presenter.PartnerPresenter.CreateTransaction)
 		partnerAPI.Post("/check-limit", presenter.PartnerPresenter.CheckLimit)
 	}
 
-	// --- Handler 404 Not Found (terakhir) ---
 	app.Use(func(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error":   true,

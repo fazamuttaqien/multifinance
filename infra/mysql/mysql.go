@@ -1,4 +1,4 @@
-package database
+package mysqldb
 
 import (
 	"context"

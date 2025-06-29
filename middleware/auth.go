@@ -3,7 +3,6 @@ package middleware
 import (
 	"errors"
 	"strconv"
-	"strings"
 
 	"github.com/fazamuttaqien/multifinance/internal/domain"
 	"github.com/gofiber/fiber/v2"
@@ -72,16 +71,10 @@ func getUserFromHeader(c *fiber.Ctx, db *gorm.DB) (*domain.Customer, error) {
 
 func NewJWTAuthMiddleware(secret string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		authHeader := c.Get("Authorization")
-		if authHeader == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing or malformed JWT"})
+		tokenStr := c.Cookies("private")
+		if tokenStr == "" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing auth token cookie"})
 		}
-
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing or malformed JWT"})
-		}
-		tokenStr := parts[1]
 
 		claims := &domain.JwtCustomClaims{}
 		token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (any, error) {

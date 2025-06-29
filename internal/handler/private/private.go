@@ -2,6 +2,7 @@ package private_handler
 
 import (
 	"errors"
+	"time"
 
 	"github.com/fazamuttaqien/multifinance/internal/dto"
 	"github.com/fazamuttaqien/multifinance/internal/service"
@@ -46,7 +47,29 @@ func (h *PrivateHandler) Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
+	c.Cookie(&fiber.Cookie{
+		Name:     "private",
+		Value:    res.Token,
+		Expires:  time.Now().Add(time.Hour * 72),
+		HTTPOnly: true,     // Mencegah akses dari JavaScript (melindungi dari XSS)
+		Secure:   false,    // Hanya kirim cookie melalui HTTPS (untuk production)
+		SameSite: "Strict", // Mencegah cookie dikirim pada cross-site request (melindungi dari CSRF)
+	})
+
 	return c.Status(fiber.StatusOK).JSON(res)
+}
+
+func (h *PrivateHandler) Logout(c *fiber.Ctx) error {
+	c.Cookie(&fiber.Cookie{
+		Name:     "private",
+		Value:    "",
+		Expires:  time.Now().Add(-time.Hour),
+		HTTPOnly: true,
+		Secure:   false,
+		SameSite: "Strict",
+	})
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Logout successful"})
 }
 
 func NewPrivateHandler(

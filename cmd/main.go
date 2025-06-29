@@ -12,12 +12,14 @@ import (
 	"time"
 
 	"github.com/fazamuttaqien/multifinance/config"
-	"github.com/fazamuttaqien/multifinance/database"
 	"github.com/fazamuttaqien/multifinance/internal/model"
+	mysqldb "github.com/fazamuttaqien/multifinance/infra/mysql"
 	"github.com/fazamuttaqien/multifinance/pkg/cloudinary"
 	"github.com/fazamuttaqien/multifinance/pkg/password"
+	ratelimiter "github.com/fazamuttaqien/multifinance/pkg/rate-limiter"
 	"github.com/fazamuttaqien/multifinance/pkg/telemetry"
 	"github.com/fazamuttaqien/multifinance/presenter"
+	redisdb "github.com/fazamuttaqien/multifinance/infra/redis"
 	"github.com/fazamuttaqien/multifinance/router"
 
 	"github.com/joho/godotenv"
@@ -45,21 +47,34 @@ func main() {
 		panic(fmt.Sprintf("Failed to initialize monitoring: %v", err))
 	}
 
-	db, err := database.InitializeDatabase()
+	db, err := mysqldb.InitializeDatabase()
 	if err != nil {
 		slog.Error("Failed to initialize database", "error", err)
 		os.Exit(1)
 	}
+
+	redisClient := redisdb.MonitorRedis(cfg)
+	if redisClient == nil {
+		panic("Failed to connect to Redis (MonitorRedis returned nil)")
+	}
+	go redisdb.WatchConnectionRedis(&redisClient, cfg)
 
 	defer func() {
 		shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancelShutdown()
 
 		zap.L().Info("Closing MySQL Connection...")
-		if err := database.Close(db, shutdownCtx); err != nil {
+		if err := mysqldb.Close(db, shutdownCtx); err != nil {
 			zap.L().Error("Error disconnecting from MySQL", zap.Error(err))
 		} else {
 			zap.L().Info("Disconnected from MySQL.")
+		}
+
+		zap.L().Info("Closing Redis connection...")
+		if err := redisClient.Close(); err != nil {
+			zap.L().Error("Error disconnecting from Redis", zap.Error(err))
+		} else {
+			zap.L().Info("Disconnected from Redis.")
 		}
 
 		zap.L().Info("Shutting down monitoring...")
@@ -79,15 +94,15 @@ func main() {
 	SeedTenors(db)
 	SeedAdmin(db)
 
-	database.EnableDebugMode(db)
+	mysqldb.EnableDebugMode(db)
 
-	if err := database.Ping(db, ctx); err != nil {
+	if err := mysqldb.Ping(db, ctx); err != nil {
 		slog.Error("Database ping failed", "error", err)
 		os.Exit(1)
 	}
 	slog.Info("Database connection successful!")
 
-	stats := database.GetStats(db)
+	stats := mysqldb.GetStats(db)
 	slog.Info("Database stats:", "stats", stats)
 
 	cld, err := cloudinary.InitCloudinary(cfg)
@@ -96,17 +111,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	presenter := presenter.NewPresenter(db, cld, tel)
-	router := router.NewRouter(presenter, db, tel, cfg)
+	rps := 100.0 / (15 * 60)
+	limiter := ratelimiter.NewRateLimiter(redisClient, rps, 100, 15*time.Minute)
+	if limiter == nil {
+		panic("Failed to initialize rate limiter")
+	}
+
+	presenter := presenter.NewPresenter(db, cld, tel, cfg)
+	router := router.NewRouter(presenter, db, tel, cfg, limiter)
 
 	addr := ":" + cfg.SERVER_PORT
 
-	// --- Jalankan Server & Handle Graceful Shutdown ---
-
-	// Channel untuk listen error dari app.Listen
 	listenErr := make(chan error, 1)
 
-	// Jalankan server di goroutine
 	go func() {
 		zap.L().Info("Server starting", zap.String("address", addr))
 		if err := router.Listen(addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -116,23 +133,19 @@ func main() {
 		}
 	}()
 
-	// Channel untuk sinyal shutdown OS
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
 
-	// Blokir sampai menerima sinyal shutdown atau error dari Listen
 	select {
 	case sig := <-shutdown:
 		zap.L().Info("Received shutdown signal", zap.String("signal", sig.String()))
 	case err := <-listenErr:
 		if err != nil {
 			zap.L().Error("Server listen error", zap.Error(err))
-			// Mungkin perlu exit atau logic lain jika Listen gagal start
 			os.Exit(1)
 		}
 	}
 
-	// Mulai proses graceful shutdown
 	zap.L().Info("Starting graceful shutdown...")
 	shutdownTimeout := 10 * time.Second
 	if err := router.ShutdownWithTimeout(shutdownTimeout); err != nil {
