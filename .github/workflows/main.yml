@@ -114,91 +114,92 @@ jobs:
           go-version: "1.24"
 
       - name: Build application
-        run: go build -v -o my-app ./main.go
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -v -o app ./main.go
 
       - name: Upload build artifact
-        # Updated to v4
         uses: actions/upload-artifact@v4
         with:
-          name: go-app
-          path: my-app
+          name: app-binary
+          path: app
 
-  # docker:
-  #   runs-on: ubuntu-latest
-  #   needs: [build] # Typically only needs build, as testing is a prerequisite for build
-  #   if: github.ref == 'refs/heads/main'
-
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-
-  #     - name: Download build artifact
-  #       uses: actions/download-artifact@v4
-  #       with:
-  #         name: go-app
-
-  #     # Make the artifact executable
-  #     - name: Make binary executable
-  #       run: chmod +x ./go-app
-
-  #     - name: Set up Docker Buildx
-  #       uses: docker/setup-buildx-action@v3
-
-  #     - name: Log in to Docker Hub
-  #       uses: docker/login-action@v3
-  #       with:
-  #         username: ${{ secrets.DOCKER_USERNAME }}
-  #         password: ${{ secrets.DOCKER_PASSWORD }}
-
-  #     - name: Extract metadata for Docker
-  #       id: meta
-  #       uses: docker/metadata-action@v5
-  #       with:
-  #         images: your-dockerhub-username/your-app-name
-
-  #     - name: Build and push Docker image
-  #       uses: docker/build-push-action@v5
-  #       with:
-  #         context: .
-  #         file: ./Dockerfile
-  #         push: true
-  #         tags: ${{ steps.meta.outputs.tags }}
-  #         labels: ${{ steps.meta.outputs.labels }}
-  #         cache-from: type=gha
-  #         cache-to: type=gha,mode=max
-
-  security:
+  docker:
     runs-on: ubuntu-latest
-    needs: test
+    needs: [build]
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v4
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
         with:
-          go-version: "1.24"
+          name: app-binary
 
-      - name: Install dependencies
-        run: go mod download
+      # Make the artifact executable
+      - name: Make binary executable
+        run: chmod +x ./app
 
-      - name: Run Go security scanner (gosec)
-        run: |
-          # Diperbarui untuk menggunakan pustaka github.com/securego/gosec
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
-          gosec -fmt json -out gosec-report.json ./...
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Run Go vulnerability check (govulncheck)
-        run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./... > govulncheck-report.txt
-
-      - name: Upload security reports
-        uses: actions/upload-artifact@v4
-        if: always()
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
         with:
-          name: security-reports
-          path: |
-            gosec-report.json
-            govulncheck-report.txt
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: fazamuttaqien/multifinance
+          tags: |
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # security:
+  #   runs-on: ubuntu-latest
+  #   needs: test
+
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v4
+  #       with:
+  #         go-version: "1.24"
+
+  #     - name: Install dependencies
+  #       run: go mod download
+
+  #     - name: Run Go security scanner (gosec)
+  #       run: |
+  #         go install github.com/securego/gosec/v2/cmd/gosec@latest
+  #         gosec -fmt json -out gosec-report.json ./...
+
+  #     - name: Run Go vulnerability check (govulncheck)
+  #       run: |
+  #         go install golang.org/x/vuln/cmd/govulncheck@latest
+  #         govulncheck ./... > govulncheck-report.txt
+
+  #     - name: Upload security reports
+  #       uses: actions/upload-artifact@v4
+  #       if: always()
+  #       with:
+  #         name: security-reports
+  #         path: |
+  #           gosec-report.json
+  #           govulncheck-report.txt
