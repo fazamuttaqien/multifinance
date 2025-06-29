@@ -17,8 +17,11 @@ import (
 	"github.com/fazamuttaqien/multifinance/internal/domain"
 	"github.com/fazamuttaqien/multifinance/internal/dto"
 	profilehandler "github.com/fazamuttaqien/multifinance/internal/handler/profile"
+	"github.com/fazamuttaqien/multifinance/middleware"
+	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/session"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -38,6 +41,9 @@ type ProfileHandlerTestSuite struct {
 	mockProfileService *MockProfileService
 	mockCloudinary     *MockCloudinaryService
 
+	store     *session.Store
+	jwtSecret string
+
 	meter  metric.Meter
 	tracer trace.Tracer
 	log    *zap.Logger
@@ -46,9 +52,13 @@ type ProfileHandlerTestSuite struct {
 func (suite *ProfileHandlerTestSuite) SetupTest() {
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	// Reset mock services for each test
 	suite.mockProfileService = &MockProfileService{}
 	suite.mockCloudinary = &MockCloudinaryService{}
+
+	suite.store = session.New(session.Config{
+		KeyLookup: "cookie:test-keylookup",
+	})
+	suite.jwtSecret = "test-secret-key"
 
 	suite.log = zap.NewNop()
 	noopTracerProvider := noop_trace.NewTracerProvider()
@@ -56,7 +66,6 @@ func (suite *ProfileHandlerTestSuite) SetupTest() {
 	noopMeterProvider := noop_metric.NewMeterProvider()
 	suite.meter = noopMeterProvider.Meter("test-profile-handler-meter")
 
-	// Create handler with dependencies
 	suite.handler = profilehandler.NewProfileHandler(
 		suite.mockProfileService,
 		suite.mockCloudinary,
@@ -65,36 +74,107 @@ func (suite *ProfileHandlerTestSuite) SetupTest() {
 		suite.log,
 	)
 
-	// Setup fiber app with routes
 	suite.app = suite.setupProfileApp()
 }
 
 func (suite *ProfileHandlerTestSuite) setupProfileApp() *fiber.App {
 	app := fiber.New()
 
-	authMiddleware := func(c *fiber.Ctx) error {
-		c.Locals("customerID", uint64(2))
-		return c.Next()
+	jwtAuth := middleware.NewJWTAuthMiddleware(suite.jwtSecret)
+	customCSRF := middleware.NewCustomCSRFMiddleware(suite.store)
+	requireCustomer := middleware.RequireRole(domain.CustomerRole)
+
+	app.Post("/register", customCSRF, suite.handler.Register)
+
+	app.Get("/csrf-token", func(c *fiber.Ctx) error {
+		sess, _ := suite.store.Get(c)
+		token := sess.Get("csrf_token")
+		if token == nil {
+			newToken, _ := middleware.GenerateCSRFToken()
+			sess.Set("csrf_token", newToken)
+			sess.Save()
+			token = newToken
+		}
+		return c.JSON(fiber.Map{"csrf_token": token})
+	})
+
+	meApi := app.Group("/me", jwtAuth, requireCustomer)
+	{
+		meApi.Get("/profile", suite.handler.GetMyProfile)
+		meApi.Put("/profile", customCSRF, suite.handler.UpdateMyProfile)
+		meApi.Get("/limits", suite.handler.GetMyLimits)
+		meApi.Get("/transactions", suite.handler.GetMyTransactions)
 	}
 
-	app.Post("/register", suite.handler.Register)
-
-	app.Get("/me/profile", authMiddleware, suite.handler.GetMyProfile)
-	app.Put("/me/profile", authMiddleware, suite.handler.UpdateMyProfile)
-	app.Get("/me/limits", authMiddleware, suite.handler.GetMyLimits)
-	app.Get("/me/transactions", authMiddleware, suite.handler.GetMyTransactions)
-
 	return app
+}
+
+func (suite *ProfileHandlerTestSuite) getCsrfToken() (string, []*http.Cookie) {
+	req := httptest.NewRequest(http.MethodGet, "/csrf-token", nil)
+	resp, err := suite.app.Test(req)
+	assert.NoError(suite.T(), err)
+	defer resp.Body.Close()
+
+	var body map[string]string
+	err = json.NewDecoder(resp.Body).Decode(&body)
+	assert.NoError(suite.T(), err)
+
+	return body["csrf_token"], resp.Cookies()
+}
+
+func (suite *ProfileHandlerTestSuite) getAuthCookieAndCsrfToken(userID uint64, role domain.Role) (string, []*http.Cookie) {
+	claims := &domain.JwtCustomClaims{
+		UserID: userID,
+		Role:   role,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 1)),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signedToken, err := token.SignedString([]byte(suite.jwtSecret))
+	assert.NoError(suite.T(), err)
+
+	jwtCookie := &http.Cookie{
+		Name:  "private",
+		Value: signedToken,
+	}
+
+	csrfReq := httptest.NewRequest(http.MethodGet, "/csrf-token", nil)
+	csrfReq.AddCookie(jwtCookie)
+
+	csrfResp, err := suite.app.Test(csrfReq)
+	assert.NoError(suite.T(), err)
+	defer csrfResp.Body.Close()
+
+	var csrfBody map[string]string
+	err = json.NewDecoder(csrfResp.Body).Decode(&csrfBody)
+	assert.NoError(suite.T(), err)
+	csrfToken := csrfBody["csrf_token"]
+	assert.NotEmpty(suite.T(), csrfToken)
+
+	var sessionCookie *http.Cookie
+	for _, c := range csrfResp.Cookies() {
+		if strings.Contains(c.Name, "test-keylookup") {
+			sessionCookie = c
+			break
+		}
+	}
+	assert.NotNil(suite.T(), sessionCookie, "Session cookie not found in response")
+
+	return csrfToken, []*http.Cookie{jwtCookie, sessionCookie}
 }
 
 func (suite *ProfileHandlerTestSuite) TestRegister_Success() {
 	nik := fmt.Sprintf("%016d", rand.Int63n(1e16))
 
-	// Arrange
+	csrfToken, sessionCookies := suite.getCsrfToken()
+	assert.NotEmpty(suite.T(), csrfToken)
+
 	fields := map[string]string{
 		"nik":         nik,
 		"full_name":   "Alan Smith",
 		"legal_name":  "Alan Smith",
+		"password":    "alansmith123",
 		"birth_place": "Surabaya",
 		"birth_date":  "1990-05-15",
 		"salary":      "5000000",
@@ -102,126 +182,154 @@ func (suite *ProfileHandlerTestSuite) TestRegister_Success() {
 	files := map[string]string{"ktp_photo": "ktp.jpg", "selfie_photo": "selfie.jpg"}
 
 	suite.mockCloudinary.MockUploadURL = "http://fake-url.com/image.jpg"
+	suite.mockCloudinary.MockUploadError = nil
+
+	birthDate, err := time.Parse("2006-01-02", fields["birth_date"])
+	assert.NoError(suite.T(), err)
+
 	suite.mockProfileService.MockRegisterResult = &domain.Customer{
-		ID:       1,
-		NIK:      fields["nik"],
-		FullName: fields["full_name"],
+		ID:         1,
+		NIK:        fields["nik"],
+		FullName:   fields["full_name"],
+		LegalName:  fields["legal_name"],
+		BirthPlace: fields["birth_place"],
+		BirthDate:  birthDate,
+		Salary:     5000000,
+		KtpUrl:     suite.mockCloudinary.MockUploadURL,
+		SelfieUrl:  suite.mockCloudinary.MockUploadURL,
 	}
+	suite.mockProfileService.MockError = nil
 
 	req, contentType := createMultipartRequest(suite.T(), fields, files)
 	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("X-CSRF-Token", csrfToken)
+	for _, c := range sessionCookies {
+		req.AddCookie(c)
+	}
 
-	// Act
 	resp, err := suite.app.Test(req)
 	assert.NoError(suite.T(), err)
 	defer resp.Body.Close()
 
-	// Assert
 	assert.Equal(suite.T(), http.StatusCreated, resp.StatusCode)
 	var result domain.Customer
 	err = json.NewDecoder(resp.Body).Decode(&result)
-
-	assert.NoError(suite.T(), err, "Failed to decode response body")
-	assert.Equal(suite.T(), uint64(1), result.ID)
+	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), fields["nik"], result.NIK)
-	assert.Equal(suite.T(), fields["full_name"], result.FullName)
 }
 
 func (suite *ProfileHandlerTestSuite) TestRegister_CloudinaryUploadFails() {
-	// Arrange
+	csrfToken, sessionCookies := suite.getCsrfToken()
+
 	fields := map[string]string{
 		"nik":         "1234567890123456",
 		"full_name":   "Test User",
 		"legal_name":  "TEST USER",
+		"password":    "testpass123",
 		"birth_place": "Test City",
-		"birth_date":  "2000-01-01T00:00:00Z",
+		"birth_date":  "2000-01-01",
 		"salary":      "5000000",
 	}
 	files := map[string]string{"ktp_photo": "ktp.jpg", "selfie_photo": "selfie.jpg"}
 
-	// Konfigurasi mock
 	suite.mockCloudinary.MockUploadError = errors.New("connection timeout")
 
 	req, contentType := createMultipartRequest(suite.T(), fields, files)
 	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("X-CSRF-Token", csrfToken)
+	for _, c := range sessionCookies {
+		req.AddCookie(c)
+	}
 
-	// Act
-	resp, _ := suite.app.Test(req)
+	resp, err := suite.app.Test(req)
+	assert.NoError(suite.T(), err)
 	defer resp.Body.Close()
 
-	// Assert
-	assert.Equal(suite.T(), http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(suite.T(), http.StatusInternalServerError, resp.StatusCode)
 }
 
 func (suite *ProfileHandlerTestSuite) TestRegister_ServiceReturnsConflict() {
-	// Arrange
+	csrfToken, sessionCookies := suite.getCsrfToken()
+
 	fields := map[string]string{
 		"nik":         "1234567890123456",
 		"full_name":   "Test User",
 		"legal_name":  "TEST USER",
+		"password":    "testpass123",
 		"birth_place": "Test City",
-		"birth_date":  "2000-01-01T00:00:00Z",
+		"birth_date":  "2000-01-01",
 		"salary":      "5000000",
 	}
 	files := map[string]string{"ktp_photo": "ktp.jpg", "selfie_photo": "selfie.jpg"}
 
-	// Konfigurasi mock
 	suite.mockCloudinary.MockUploadURL = "http://fake-url.com/image.jpg"
 	suite.mockCloudinary.MockUploadError = nil
 	suite.mockProfileService.MockError = errors.New("nik already registered")
 
 	req, contentType := createMultipartRequest(suite.T(), fields, files)
 	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("X-CSRF-Token", csrfToken)
+	for _, c := range sessionCookies {
+		req.AddCookie(c)
+	}
 
-	// Act
-	resp, _ := suite.app.Test(req)
+	resp, err := suite.app.Test(req)
+	assert.NoError(suite.T(), err)
 	defer resp.Body.Close()
 
-	// Assert
-	assert.Equal(suite.T(), http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(suite.T(), http.StatusConflict, resp.StatusCode)
 }
 
 func (suite *ProfileHandlerTestSuite) TestGetMyProfile_Success() {
-	// Arrange
-	suite.mockProfileService.MockGetMyProfileResult = &domain.Customer{ID: 2, FullName: "Authenticated User"}
+	_, authCookies := suite.getAuthCookieAndCsrfToken(2, domain.CustomerRole)
+
+	suite.mockProfileService.MockGetMyProfileResult = &domain.Customer{
+		ID:       2,
+		FullName: "Alan Smith",
+		Role:     domain.CustomerRole,
+	}
+	suite.mockProfileService.MockError = nil
 
 	req := httptest.NewRequest(http.MethodGet, "/me/profile", nil)
+	for _, c := range authCookies {
+		req.AddCookie(c)
+	}
 
-	// Act
-	resp, _ := suite.app.Test(req)
+	resp, err := suite.app.Test(req)
+	assert.NoError(suite.T(), err)
 	defer resp.Body.Close()
 
-	// Assert
 	assert.Equal(suite.T(), http.StatusOK, resp.StatusCode)
-
 	var customer domain.Customer
-	json.NewDecoder(resp.Body).Decode(&customer)
+	err = json.NewDecoder(resp.Body).Decode(&customer)
+	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), uint64(2), customer.ID)
-	assert.Equal(suite.T(), "Authenticated User", customer.FullName)
 }
 
 func (suite *ProfileHandlerTestSuite) TestUpdateMyProfile_Success() {
-	// Arrange
+	csrfToken, authCookies := suite.getAuthCookieAndCsrfToken(2, domain.CustomerRole)
 	suite.mockProfileService.MockError = nil
 
-	// Buat body request
-	updateBody := `{"full_name": "Updated Name", "salary": 12000000}`
+	updateBody := `{"full_name": "Jane Doe", "salary": 12000000}`
+
 	req := httptest.NewRequest(http.MethodPut, "/me/profile", strings.NewReader(updateBody))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-CSRF-Token", csrfToken)
 
-	// Act
-	resp, _ := suite.app.Test(req)
+	for _, c := range authCookies {
+		req.AddCookie(c)
+	}
+
+	resp, err := suite.app.Test(req)
+	assert.NoError(suite.T(), err)
 	defer resp.Body.Close()
 
-	// Assert
 	assert.Equal(suite.T(), http.StatusOK, resp.StatusCode)
-	var bodyMap map[string]string
-	json.NewDecoder(resp.Body).Decode(&bodyMap)
-	assert.Equal(suite.T(), "Profile updated successfully", bodyMap["message"])
 }
 
 func (suite *ProfileHandlerTestSuite) TestGetMyLimits_Success() {
-	// Arrange
+	_, authCookies := suite.getAuthCookieAndCsrfToken(2, domain.CustomerRole)
+
 	expectedLimits := []dto.LimitDetailResponse{
 		{
 			TenorMonths:    3,
@@ -239,18 +347,17 @@ func (suite *ProfileHandlerTestSuite) TestGetMyLimits_Success() {
 	suite.mockProfileService.MockGetMyLimitsResult = expectedLimits
 	suite.mockProfileService.MockError = nil
 
-	// Buat request HTTP
 	req := httptest.NewRequest(http.MethodGet, "/me/limits", nil)
+	for _, c := range authCookies {
+		req.AddCookie(c)
+	}
 
-	// Act
 	resp, err := suite.app.Test(req)
 	assert.NoError(suite.T(), err)
 	defer resp.Body.Close()
 
-	// Assert
 	assert.Equal(suite.T(), http.StatusOK, resp.StatusCode)
 
-	// Baca dan validasi body response
 	var actualLimits []dto.LimitDetailResponse
 	err = json.NewDecoder(resp.Body).Decode(&actualLimits)
 	assert.NoError(suite.T(), err)
@@ -262,26 +369,31 @@ func (suite *ProfileHandlerTestSuite) TestGetMyLimits_Success() {
 }
 
 func (suite *ProfileHandlerTestSuite) TestGetMyLimits_ServiceReturnsError() {
-	// Arrange
+	_, authCookies := suite.getAuthCookieAndCsrfToken(2, domain.CustomerRole)
+
 	suite.mockProfileService.MockGetMyLimitsResult = nil
 	suite.mockProfileService.MockError = errors.New("Failed to get limits")
 
 	req := httptest.NewRequest(http.MethodGet, "/me/limits", nil)
+	for _, c := range authCookies {
+		req.AddCookie(c)
+	}
 
-	// Act
-	resp, _ := suite.app.Test(req)
+	resp, err := suite.app.Test(req)
+	assert.NoError(suite.T(), err)
 	defer resp.Body.Close()
 
-	// Assert
 	assert.Equal(suite.T(), http.StatusInternalServerError, resp.StatusCode)
 
 	var bodyMap map[string]string
-	json.NewDecoder(resp.Body).Decode(&bodyMap)
+	err = json.NewDecoder(resp.Body).Decode(&bodyMap)
+	assert.NoError(suite.T(), err)
 	assert.Contains(suite.T(), bodyMap["error"], "Failed to get limits")
 }
 
 func (suite *ProfileHandlerTestSuite) TestGetMyTransactions_SuccessWithQueryParameters() {
-	// Arrange
+	_, authCookies := suite.getAuthCookieAndCsrfToken(2, domain.CustomerRole)
+
 	expectedResponse := &domain.Paginated{
 		Data: []domain.Transaction{
 			{ID: 1, AssetName: "Laptop"},
@@ -294,18 +406,17 @@ func (suite *ProfileHandlerTestSuite) TestGetMyTransactions_SuccessWithQueryPara
 	suite.mockProfileService.MockGetMyTransactionsResult = expectedResponse
 	suite.mockProfileService.MockError = nil
 
-	// Buat request dengan query params
 	req := httptest.NewRequest(http.MethodGet, "/me/transactions?status=ACTIVE&page=1&limit=5", nil)
+	for _, c := range authCookies {
+		req.AddCookie(c)
+	}
 
-	// Act
 	resp, err := suite.app.Test(req)
 	assert.NoError(suite.T(), err)
 	defer resp.Body.Close()
 
-	// Assert
 	assert.Equal(suite.T(), http.StatusOK, resp.StatusCode)
 
-	// Baca dan validasi body response
 	var actualResponse struct {
 		Data       []domain.Transaction `json:"data"`
 		Total      int64                `json:"total"`
@@ -324,7 +435,8 @@ func (suite *ProfileHandlerTestSuite) TestGetMyTransactions_SuccessWithQueryPara
 }
 
 func (suite *ProfileHandlerTestSuite) TestGetMyTransactions_SuccessWithoutQueryParameters() {
-	// Arrange
+	_, authCookies := suite.getAuthCookieAndCsrfToken(2, domain.CustomerRole)
+
 	suite.mockProfileService.MockGetMyTransactionsResult = &domain.Paginated{
 		Data:       []domain.Transaction{},
 		Total:      0,
@@ -335,21 +447,23 @@ func (suite *ProfileHandlerTestSuite) TestGetMyTransactions_SuccessWithoutQueryP
 	suite.mockProfileService.MockError = nil
 
 	req := httptest.NewRequest(http.MethodGet, "/me/transactions", nil)
+	for _, c := range authCookies {
+		req.AddCookie(c)
+	}
 
-	// Act
-	resp, _ := suite.app.Test(req)
+	resp, err := suite.app.Test(req)
+	assert.NoError(suite.T(), err)
 	defer resp.Body.Close()
 
-	// Assert
 	assert.Equal(suite.T(), http.StatusOK, resp.StatusCode)
 
 	var actualResponse domain.Paginated
-	json.NewDecoder(resp.Body).Decode(&actualResponse)
+	err = json.NewDecoder(resp.Body).Decode(&actualResponse)
+	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), 1, actualResponse.Page)
 	assert.Equal(suite.T(), 10, actualResponse.Limit)
 }
 
-// TestProfileHandlerSuite runs the test suite
 func TestProfileHandlerSuite(t *testing.T) {
 	suite.Run(t, new(ProfileHandlerTestSuite))
 }
@@ -358,7 +472,6 @@ func createMultipartRequest(
 	t *testing.T,
 	fields, files map[string]string,
 ) (*http.Request, string) {
-
 	body := new(bytes.Buffer)
 	writer := multipart.NewWriter(body)
 

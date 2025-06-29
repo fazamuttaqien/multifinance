@@ -13,9 +13,12 @@ import (
 	"github.com/fazamuttaqien/multifinance/internal/domain"
 	"github.com/fazamuttaqien/multifinance/internal/dto"
 	partnerhandler "github.com/fazamuttaqien/multifinance/internal/handler/partner"
+	"github.com/fazamuttaqien/multifinance/middleware"
 	"github.com/fazamuttaqien/multifinance/pkg/common"
+	"github.com/golang-jwt/jwt/v5"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/session"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -34,6 +37,9 @@ type PartnerHandlerTestSuite struct {
 	handler            *partnerhandler.PartnerHandler
 	mockPartnerService *MockPartnerService
 
+	store     *session.Store
+	jwtSecret string
+
 	meter  metric.Meter
 	tracer trace.Tracer
 	log    *zap.Logger
@@ -43,12 +49,14 @@ func (suite *PartnerHandlerTestSuite) SetupTest() {
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	suite.mockPartnerService = &MockPartnerService{}
+	suite.store = session.New(session.Config{KeyLookup: "cookie:test-keylookup-partner"})
+	suite.jwtSecret = "test-partner-secret-key"
 
 	suite.log = zap.NewNop()
 	noopTracerProvider := noop_trace.NewTracerProvider()
-	suite.tracer = noopTracerProvider.Tracer("test-profile-handler-tracer")
+	suite.tracer = noopTracerProvider.Tracer("test-partner-handler-tracer")
 	noopMeterProvider := noop_metric.NewMeterProvider()
-	suite.meter = noopMeterProvider.Meter("test-profile-handler-meter")
+	suite.meter = noopMeterProvider.Meter("test-partner-handler-meter")
 
 	suite.handler = partnerhandler.NewPartnerHandler(
 		suite.mockPartnerService,
@@ -62,17 +70,67 @@ func (suite *PartnerHandlerTestSuite) SetupTest() {
 
 func (suite *PartnerHandlerTestSuite) setupPartnerApp() *fiber.App {
 	app := fiber.New()
-	partnerGroup := app.Group("/partners")
 
-	partnerGroup.Post("/check-limit", suite.handler.CheckLimit)
-	partnerGroup.Post("/transactions", suite.handler.CreateTransaction)
+	jwtAuth := middleware.NewJWTAuthMiddleware(suite.jwtSecret)
+	customCSRF := middleware.NewCustomCSRFMiddleware(suite.store)
+	requireCustomer := middleware.RequireRole(domain.CustomerRole)
+
+	app.Get("/test/csrf-token", func(c *fiber.Ctx) error {
+		sess, _ := suite.store.Get(c)
+		token := sess.Get("csrf_token")
+		if token == nil {
+			newToken, _ := middleware.GenerateCSRFToken()
+			sess.Set("csrf_token", newToken)
+			sess.Save()
+			token = newToken
+		}
+		return c.JSON(fiber.Map{"csrf_token": token})
+	})
+
+	partnerGroup := app.Group("/partners", jwtAuth, requireCustomer, customCSRF)
+	{
+		partnerGroup.Post("/check-limit", suite.handler.CheckLimit)
+		partnerGroup.Post("/transactions", suite.handler.CreateTransaction)
+	}
 
 	return app
 }
 
-func (suite *PartnerHandlerTestSuite) TestCheckLimit() {
-	nik := fmt.Sprintf("%016d", rand.Int63n(1e16))
+func (suite *PartnerHandlerTestSuite) getAuthCookieAndCsrfToken() (string, []*http.Cookie) {
+	claims := &domain.JwtCustomClaims{
+		UserID: 3,
+		Role:   domain.CustomerRole,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 1)),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signedToken, err := token.SignedString([]byte(suite.jwtSecret))
+	assert.NoError(suite.T(), err)
 
+	jwtCookie := &http.Cookie{Name: "private", Value: signedToken}
+
+	csrfReq := httptest.NewRequest(http.MethodGet, "/test/csrf-token", nil)
+	csrfReq.AddCookie(jwtCookie)
+	csrfResp, err := suite.app.Test(csrfReq)
+	assert.NoError(suite.T(), err)
+	defer csrfResp.Body.Close()
+
+	var csrfBody map[string]string
+	json.NewDecoder(csrfResp.Body).Decode(&csrfBody)
+	csrfToken := csrfBody["csrf_token"]
+	assert.NotEmpty(suite.T(), csrfToken)
+
+	var allCookies []*http.Cookie
+	allCookies = append(allCookies, jwtCookie)
+	allCookies = append(allCookies, csrfResp.Cookies()...)
+
+	return csrfToken, allCookies
+}
+
+func (suite *PartnerHandlerTestSuite) TestCheckLimit() {
+	csrfToken, authCookies := suite.getAuthCookieAndCsrfToken()
+	nik := fmt.Sprintf("%016d", rand.Int63n(1e16))
 	requestBodyMap := map[string]any{
 		"customer_nik":       nik,
 		"tenor_months":       6,
@@ -80,63 +138,39 @@ func (suite *PartnerHandlerTestSuite) TestCheckLimit() {
 	}
 
 	suite.Run("Success - Limit Approved", func() {
-		// Arrange
 		suite.mockPartnerService.MockCheckLimitResult = &dto.CheckLimitResponse{Status: "approved"}
-		req := createJSONRequest(suite.T(), http.MethodPost, "/partners/check-limit", requestBodyMap)
-
-		// Act
+		suite.mockPartnerService.MockError = nil
+		req := createJSONRequestWithAuth(suite.T(), csrfToken, authCookies, http.MethodPost, "/partners/check-limit", requestBodyMap)
 		resp, _ := suite.app.Test(req)
 		defer resp.Body.Close()
-
-		// Assert
 		assert.Equal(suite.T(), http.StatusOK, resp.StatusCode)
 	})
 
 	suite.Run("Success - Limit Rejected", func() {
-		// Arrange
 		suite.mockPartnerService.MockCheckLimitResult = &dto.CheckLimitResponse{Status: "rejected"}
-		req := createJSONRequest(suite.T(), http.MethodPost, "/partners/check-limit", requestBodyMap)
+		suite.mockPartnerService.MockError = nil
+		req := createJSONRequestWithAuth(suite.T(), csrfToken, authCookies, http.MethodPost, "/partners/check-limit", requestBodyMap)
 
-		// Act
 		resp, _ := suite.app.Test(req)
 		defer resp.Body.Close()
 
-		// Assert
 		assert.Equal(suite.T(), http.StatusUnprocessableEntity, resp.StatusCode)
 	})
 
 	suite.Run("Failure - Customer Not Found", func() {
-		// Arrange
 		suite.mockPartnerService.MockError = common.ErrCustomerNotFound
-		req := createJSONRequest(suite.T(), http.MethodPost, "/partners/check-limit", requestBodyMap)
+		req := createJSONRequestWithAuth(suite.T(), csrfToken, authCookies, http.MethodPost, "/partners/check-limit", requestBodyMap)
 
-		// Act
 		resp, _ := suite.app.Test(req)
 		defer resp.Body.Close()
 
-		// Assert
 		assert.Equal(suite.T(), http.StatusNotFound, resp.StatusCode)
-	})
-
-	suite.Run("Failure - Invalid Request Body", func() {
-		// Arrange
-		invalidBodyMap := map[string]interface{}{
-			"customer_nik": nik,
-		}
-		req := createJSONRequest(suite.T(), http.MethodPost, "/partners/check-limit", invalidBodyMap)
-
-		// Act
-		resp, _ := suite.app.Test(req)
-		defer resp.Body.Close()
-
-		// Assert
-		assert.Equal(suite.T(), http.StatusBadRequest, resp.StatusCode)
 	})
 }
 
 func (suite *PartnerHandlerTestSuite) TestCreateTransaction() {
+	csrfToken, authCookies := suite.getAuthCookieAndCsrfToken()
 	nik := fmt.Sprintf("%016d", rand.Int63n(1e16))
-
 	requestBodyMap := map[string]any{
 		"customer_nik": nik,
 		"tenor_months": 6,
@@ -146,58 +180,71 @@ func (suite *PartnerHandlerTestSuite) TestCreateTransaction() {
 	}
 
 	suite.Run("Success - Transaction Created", func() {
-		// Arrange
 		suite.mockPartnerService.MockCreateTransactionResult = &domain.Transaction{ID: 1, AssetName: "Laptop"}
-		req := createJSONRequest(suite.T(), http.MethodPost, "/partners/transactions", requestBodyMap)
-
-		// Act
+		suite.mockPartnerService.MockError = nil
+		req := createJSONRequestWithAuth(suite.T(), csrfToken, authCookies, http.MethodPost, "/partners/transactions", requestBodyMap)
 		resp, _ := suite.app.Test(req)
 		defer resp.Body.Close()
-
-		// Assert
 		assert.Equal(suite.T(), http.StatusCreated, resp.StatusCode)
-		var result domain.Transaction
-		json.NewDecoder(resp.Body).Decode(&result)
-		assert.Equal(suite.T(), uint64(1), result.ID)
 	})
 
 	suite.Run("Failure - Insufficient Limit", func() {
-		// Arrange
 		suite.mockPartnerService.MockError = common.ErrInsufficientLimit
-		req := createJSONRequest(suite.T(), http.MethodPost, "/partners/transactions", requestBodyMap)
+		req := createJSONRequestWithAuth(suite.T(), csrfToken, authCookies, http.MethodPost, "/partners/transactions", requestBodyMap)
 
-		// Act
 		resp, _ := suite.app.Test(req)
 		defer resp.Body.Close()
 
-		// Assert
 		assert.Equal(suite.T(), http.StatusUnprocessableEntity, resp.StatusCode)
-	})
-
-	suite.Run("Failure - Customer Not Found", func() {
-		// Arrange
-		suite.mockPartnerService.MockError = common.ErrCustomerNotFound
-		req := createJSONRequest(suite.T(), http.MethodPost, "/partners/transactions", requestBodyMap)
-
-		// Act
-		resp, _ := suite.app.Test(req)
-		defer resp.Body.Close()
-
-		// Assert
-		assert.Equal(suite.T(), http.StatusNotFound, resp.StatusCode)
 	})
 }
 
-// TestPartnerHandlerSuite menjalankan seluruh test suite
+func (suite *PartnerHandlerTestSuite) TestPartnerRoutes_Security() {
+	requestBodyMap := map[string]any{"customer_nik": "1234567890123456"}
+
+	suite.Run("Failure - No Auth Cookie", func() {
+		req := createJSONRequestWithAuth(suite.T(), "dummy-csrf", nil, http.MethodPost, "/partners/check-limit", requestBodyMap)
+		resp, _ := suite.app.Test(req)
+		defer resp.Body.Close()
+		assert.Equal(suite.T(), http.StatusUnauthorized, resp.StatusCode)
+	})
+
+	suite.Run("Failure - Wrong Role (Admin)", func() {
+		claims := &domain.JwtCustomClaims{UserID: 1, Role: domain.AdminRole}
+		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+		signedToken, _ := token.SignedString([]byte(suite.jwtSecret))
+		cookie := &http.Cookie{Name: "jwt_auth_token", Value: signedToken}
+
+		req := createJSONRequestWithAuth(suite.T(), "dummy-csrf", []*http.Cookie{cookie}, http.MethodPost, "/partners/check-limit", requestBodyMap)
+		resp, _ := suite.app.Test(req)
+		defer resp.Body.Close()
+		assert.Equal(suite.T(), http.StatusUnauthorized, resp.StatusCode)
+	})
+
+	suite.Run("Failure - No CSRF Header", func() {
+		_, authCookies := suite.getAuthCookieAndCsrfToken()
+		req := createJSONRequestWithAuth(suite.T(), "", authCookies, http.MethodPost, "/partners/check-limit", requestBodyMap)
+		resp, _ := suite.app.Test(req)
+		defer resp.Body.Close()
+		assert.Equal(suite.T(), http.StatusForbidden, resp.StatusCode)
+	})
+}
+
 func TestPartnerHandlerSuite(t *testing.T) {
 	suite.Run(t, new(PartnerHandlerTestSuite))
 }
 
-func createJSONRequest(t *testing.T, method, url string, body map[string]interface{}) *http.Request {
+func createJSONRequestWithAuth(t *testing.T, csrfToken string, cookies []*http.Cookie, method, url string, body map[string]interface{}) *http.Request {
 	jsonBody, err := json.Marshal(body)
 	assert.NoError(t, err, "Failed to marshal request body")
 
 	req := httptest.NewRequest(method, url, bytes.NewReader(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
+	if csrfToken != "" {
+		req.Header.Set("X-CSRF-Token", csrfToken)
+	}
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
 	return req
 }

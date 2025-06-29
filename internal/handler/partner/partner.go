@@ -258,7 +258,6 @@ func (p *PartnerHandler) CheckLimit(c *fiber.Ctx) error {
 }
 
 func (h *PartnerHandler) CreateTransaction(c *fiber.Ctx) error {
-	// 1. Observability Setup
 	ctx := c.UserContext()
 	ctx, span := h.tracer.Start(ctx, "handler.CreateTransaction")
 	defer span.End()
@@ -283,7 +282,6 @@ func (h *PartnerHandler) CreateTransaction(c *fiber.Ctx) error {
 		attribute.String("method", c.Method()),
 	))
 
-	// 2. Parse request body (JSON)
 	var req dto.CreateTransactionRequest
 	if err := c.BodyParser(&req); err != nil {
 		return h.recordError(
@@ -291,14 +289,12 @@ func (h *PartnerHandler) CreateTransaction(c *fiber.Ctx) error {
 			fiber.StatusBadRequest, "parse_error", "Cannot parse request body", zap.Error(err))
 	}
 
-	// 3. Validasi struct request
 	if err := h.validate.Struct(req); err != nil {
 		return h.recordError(
 			ctx, span, c, start, err,
 			fiber.StatusBadRequest, "validation_error", "Validation failed", zap.Error(err))
 	}
 
-	// Add request attributes to span
 	span.SetAttributes(
 		attribute.String("customer.nik", req.CustomerNIK),
 		attribute.Int("tenor.months", int(req.TenorMonths)),
@@ -314,7 +310,6 @@ func (h *PartnerHandler) CreateTransaction(c *fiber.Ctx) error {
 		zap.String("trace_id", span.SpanContext().TraceID().String()),
 	)
 
-	// 4. Context with Timeout for Service Call
 	serviceCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 

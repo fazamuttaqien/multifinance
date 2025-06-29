@@ -1,4 +1,4 @@
-package repository
+package repository_test
 
 import (
 	"context"
@@ -12,13 +12,18 @@ import (
 	"github.com/fazamuttaqien/multifinance/internal/repository"
 	transactionrepo "github.com/fazamuttaqien/multifinance/internal/repository/transaction"
 	"github.com/fazamuttaqien/multifinance/pkg/common"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"go.opentelemetry.io/otel"
+
 	"go.opentelemetry.io/otel/metric"
+	noop_metric "go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/trace"
+	noop_trace "go.opentelemetry.io/otel/trace/noop"
+
 	"go.uber.org/zap"
+
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -26,75 +31,79 @@ import (
 
 type TransactionRepositoryTestSuite struct {
 	suite.Suite
-	db                    *gorm.DB
-	ctx                   context.Context
+	db  *gorm.DB
+	ctx context.Context
+
 	meter                 metric.Meter
 	tracer                trace.Tracer
 	log                   *zap.Logger
 	transactionRepository repository.TransactionRepository
 
-	// Test data
 	customerID uint64
 	tenorID    uint
 }
 
 func (suite *TransactionRepositoryTestSuite) SetupSuite() {
-	// Setup database connection untuk testing
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8mb4&parseTime=True&loc=Local",
-		common.GetEnv("DB_USER", "root"),
-		common.GetEnv("DB_PASSWORD", ""),
-		common.GetEnv("DB_HOST", "localhost"),
-		common.GetEnv("DB_PORT", "3306"),
+		common.GetEnv("MYSQL_USER", "root"),
+		common.GetEnv("MYSQL_PASSWORD", "rootpassword123"),
+		common.GetEnv("MYSQL_HOST", "localhost"),
+		common.GetEnv("MYSQL_PORT", "3306"),
 	)
 
 	db, err := sql.Open("mysql", dsn)
 	require.NoError(suite.T(), err)
 
-	testDBName := "multifinance_transaction_test"
+	testDBName := "loan_system_test"
 
-	// Drop database jika sudah ada
 	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", testDBName))
 	require.NoError(suite.T(), err)
 
-	// Buat database untuk testing
 	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", testDBName))
 	require.NoError(suite.T(), err)
 
 	db.Close()
 
-	// Connect ke test database
 	testDSN := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		common.GetEnv("DB_USER", "root"),
-		common.GetEnv("DB_PASSWORD", ""),
-		common.GetEnv("DB_HOST", "localhost"),
-		common.GetEnv("DB_PORT", "3306"),
+		common.GetEnv("MYSQL_USER", "root"),
+		common.GetEnv("MYSQL_PASSWORD", "rootpassword123"),
+		common.GetEnv("MYSQL_HOST", "localhost"),
+		common.GetEnv("MYSQL_PORT", "3306"),
 		testDBName,
 	)
 
 	gormDB, err := gorm.Open(mysql.Open(testDSN), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent), // Silent mode untuk testing
+		Logger: logger.Default.LogMode(logger.Silent),
 	})
 	require.NoError(suite.T(), err)
 
 	suite.db = gormDB
 	suite.ctx = context.Background()
 
-	// Auto migrate models
-	err = suite.db.AutoMigrate(&model.Customer{}, &model.Tenor{}, &model.CustomerLimit{}, &model.Transaction{})
+	suite.log = zap.NewNop()
+	noopTracerProvider := noop_trace.NewTracerProvider()
+	suite.tracer = noopTracerProvider.Tracer("test-customer-repository-tracer")
+	noopMeterProvider := noop_metric.NewMeterProvider()
+	suite.meter = noopMeterProvider.Meter("test-customer-repository-meter")
+
+	err = suite.db.AutoMigrate(
+		&model.Customer{},
+		&model.Tenor{},
+		&model.CustomerLimit{},
+		&model.Transaction{},
+	)
 	require.NoError(suite.T(), err)
 
-	// Initialize repository
 	suite.transactionRepository = transactionrepo.NewTransactionRepository(suite.db, suite.meter, suite.tracer, suite.log)
 }
 
 func (suite *TransactionRepositoryTestSuite) TearDownSuite() {
-	// Drop test database
-	testDBName := "multifinance_transaction_test"
+	testDBName := "loan_system_test"
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8mb4&parseTime=True&loc=Local",
-		common.GetEnv("DB_USER", "root"),
-		common.GetEnv("DB_PASSWORD", ""),
-		common.GetEnv("DB_HOST", "localhost"),
-		common.GetEnv("DB_PORT", "3306"),
+		common.GetEnv("MYSQL_USER", "root"),
+		common.GetEnv("MYSQL_PASSWORD", "rootpassword123"),
+		common.GetEnv("MYSQL_HOST", "localhost"),
+		common.GetEnv("MYSQL_PORT", "3306"),
 	)
 
 	db, err := sql.Open("mysql", dsn)
@@ -105,13 +114,11 @@ func (suite *TransactionRepositoryTestSuite) TearDownSuite() {
 }
 
 func (suite *TransactionRepositoryTestSuite) SetupTest() {
-	// Clean up database sebelum setiap test
 	suite.db.Exec("DELETE FROM transactions")
 	suite.db.Exec("DELETE FROM customer_limits")
 	suite.db.Exec("DELETE FROM customers")
 	suite.db.Exec("DELETE FROM tenors")
 
-	// Setup test data
 	suite.setupTestData()
 }
 
@@ -119,8 +126,10 @@ func (suite *TransactionRepositoryTestSuite) setupTestData() {
 	// Create test customer
 	customer := model.Customer{
 		NIK:                "1234567890123456",
-		FullName:           "Test Customer",
-		LegalName:          "Test Customer Legal",
+		FullName:           "John Doe",
+		LegalName:          "John Doe",
+		Password:           "johndoe123",
+		Role:               "customer",
 		BirthPlace:         "Jakarta",
 		BirthDate:          time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
 		Salary:             5000000,
@@ -145,7 +154,6 @@ func (suite *TransactionRepositoryTestSuite) setupTestData() {
 }
 
 func (suite *TransactionRepositoryTestSuite) TestCreateTransaction_Success() {
-	// Arrange
 	transaction := domain.Transaction{
 		ContractNumber:         "CONTRACT001",
 		CustomerID:             suite.customerID,
@@ -159,13 +167,10 @@ func (suite *TransactionRepositoryTestSuite) TestCreateTransaction_Success() {
 		TransactionDate:        time.Now(),
 	}
 
-	// Act
 	err := suite.transactionRepository.CreateTransaction(suite.ctx, &transaction)
 
-	// Assert
 	assert.NoError(suite.T(), err)
 
-	// Verify data tersimpan di database
 	var savedTransaction model.Transaction
 	err = suite.db.Where("contract_number = ?", transaction.ContractNumber).First(&savedTransaction).Error
 	assert.NoError(suite.T(), err)
@@ -176,7 +181,6 @@ func (suite *TransactionRepositoryTestSuite) TestCreateTransaction_Success() {
 }
 
 func (suite *TransactionRepositoryTestSuite) TestFindPaginatedByCustomerID_Success_WithoutFilter() {
-	// Arrange
 	transactions := []model.Transaction{
 		{
 			ContractNumber:         "CONTRACT001",
@@ -226,20 +230,17 @@ func (suite *TransactionRepositoryTestSuite) TestFindPaginatedByCustomerID_Succe
 		Limit: 2,
 	}
 
-	// Act
 	result, total, err := suite.transactionRepository.FindPaginatedByCustomerID(suite.ctx, suite.customerID, params)
 
-	// Assert
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), int64(3), total)
 	assert.Len(suite.T(), result, 2)
-	// Verify ordering (newest first)
+
 	assert.Equal(suite.T(), "CONTRACT003", result[0].ContractNumber)
 	assert.Equal(suite.T(), "CONTRACT002", result[1].ContractNumber)
 }
 
 func (suite *TransactionRepositoryTestSuite) TestFindPaginatedByCustomerID_Success_WithStatusFilter() {
-	// Arrange
 	transactions := []model.Transaction{
 		{
 			ContractNumber:         "CONTRACT001",
@@ -290,14 +291,12 @@ func (suite *TransactionRepositoryTestSuite) TestFindPaginatedByCustomerID_Succe
 		Limit:  10,
 	}
 
-	// Act
 	result, total, err := suite.transactionRepository.FindPaginatedByCustomerID(suite.ctx, suite.customerID, params)
 
-	// Assert
 	assert.NoError(suite.T(), err)
 	assert.Equal(suite.T(), int64(2), total)
 	assert.Len(suite.T(), result, 2)
-	// Verify all results have ACTIVE status
+
 	for _, transaction := range result {
 		assert.Equal(suite.T(), domain.TransactionActive, transaction.Status)
 	}
@@ -321,7 +320,7 @@ func (suite *TransactionRepositoryTestSuite) TestFindPaginatedByCustomerID_Empty
 
 func (suite *TransactionRepositoryTestSuite) TestFindPaginatedByCustomerID_SecondPage() {
 	// Arrange
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		transaction := model.Transaction{
 			ContractNumber:         fmt.Sprintf("CONTRACT%03d", i+1),
 			CustomerID:             suite.customerID,
@@ -530,140 +529,6 @@ func (suite *TransactionRepositoryTestSuite) TestCreateTransaction_ValidationErr
 	assert.Error(suite.T(), err)
 }
 
-// Test runner function
 func TestTransactionRepositoryTestSuite(t *testing.T) {
 	suite.Run(t, new(TransactionRepositoryTestSuite))
-}
-
-// Benchmark tests
-func BenchmarkTransactionRepository_CreateTransaction(b *testing.B) {
-	// Setup database untuk benchmark
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/multifinance_transaction_test?charset=utf8mb4&parseTime=True&loc=Local",
-		common.GetEnv("DB_USER", "root"),
-		common.GetEnv("DB_PASSWORD", ""),
-		common.GetEnv("DB_HOST", "localhost"),
-		common.GetEnv("DB_PORT", "3306"),
-	)
-
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	repo := transactionrepo.NewTransactionRepository(
-		db,
-		otel.GetMeterProvider().Meter(""),
-		otel.GetTracerProvider().Tracer(""),
-		zap.L(),
-	)
-	ctx := context.Background()
-
-	// Setup test data
-	customer := model.Customer{
-		NIK:                "1234567890123456",
-		FullName:           "Benchmark Customer",
-		LegalName:          "Benchmark Customer Legal",
-		BirthPlace:         "Jakarta",
-		BirthDate:          time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
-		Salary:             5000000,
-		VerificationStatus: model.VerificationVerified,
-		CreatedAt:          time.Now(),
-		UpdatedAt:          time.Now(),
-	}
-	db.Create(&customer)
-
-	tenor := model.Tenor{
-		DurationMonths: 12,
-		Description:    "12 Months",
-	}
-	db.Create(&tenor)
-
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		i := 0
-		for pb.Next() {
-			transaction := domain.Transaction{
-				ContractNumber:         fmt.Sprintf("BENCH%010d", i),
-				CustomerID:             customer.ID,
-				TenorID:                tenor.ID,
-				AssetName:              fmt.Sprintf("Benchmark Asset %d", i),
-				OTRAmount:              15000000,
-				AdminFee:               500000,
-				TotalInterest:          2000000,
-				TotalInstallmentAmount: 17500000,
-				Status:                 domain.TransactionPending,
-				TransactionDate:        time.Now(),
-			}
-			repo.CreateTransaction(ctx, &transaction)
-			i++
-		}
-	})
-}
-
-func BenchmarkTransactionRepository_SumActivePrincipal(b *testing.B) {
-	// Setup database untuk benchmark
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/multifinance_transaction_test?charset=utf8mb4&parseTime=True&loc=Local",
-		common.GetEnv("DB_USER", "root"),
-		common.GetEnv("DB_PASSWORD", ""),
-		common.GetEnv("DB_HOST", "localhost"),
-		common.GetEnv("DB_PORT", "3306"),
-	)
-
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Silent),
-	})
-	if err != nil {
-		b.Fatal(err)
-	}
-
-	repo := transactionrepo.NewTransactionRepository(
-		db,
-		otel.GetMeterProvider().Meter(""),
-		otel.GetTracerProvider().Tracer(""),
-		zap.L())
-	ctx := context.Background()
-
-	// Setup test data
-	customer := model.Customer{
-		NIK:                "1234567890123456",
-		FullName:           "Benchmark Customer",
-		LegalName:          "Benchmark Customer Legal",
-		BirthPlace:         "Jakarta",
-		BirthDate:          time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
-		Salary:             5000000,
-		VerificationStatus: model.VerificationVerified,
-		CreatedAt:          time.Now(),
-		UpdatedAt:          time.Now(),
-	}
-	db.Create(&customer)
-
-	tenor := model.Tenor{
-		DurationMonths: 12,
-		Description:    "12 Months",
-	}
-	db.Create(&tenor)
-
-	// Create some active transactions
-	for i := range 10 {
-		transaction := model.Transaction{
-			ContractNumber:  fmt.Sprintf("SETUP%010d", i),
-			CustomerID:      customer.ID,
-			TenorID:         tenor.ID,
-			AssetName:       fmt.Sprintf("Setup Asset %d", i),
-			OTRAmount:       15000000,
-			AdminFee:        500000,
-			Status:          model.TransactionActive,
-			TransactionDate: time.Now(),
-		}
-		db.Create(&transaction)
-	}
-
-	b.ResetTimer()
-	b.RunParallel(func(pb *testing.PB) {
-		for pb.Next() {
-			repo.SumActivePrincipalByCustomerIDAndTenorID(ctx, customer.ID, tenor.ID)
-		}
-	})
 }

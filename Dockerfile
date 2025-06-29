@@ -12,7 +12,7 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o main ./cmd/main.go
+RUN go build -o main ./main.go
 
 FROM alpine:3.21
 
