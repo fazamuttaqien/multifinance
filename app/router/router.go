@@ -7,8 +7,9 @@ import (
 	"github.com/fazamuttaqien/multifinance/config"
 	"github.com/fazamuttaqien/multifinance/database"
 	"github.com/fazamuttaqien/multifinance/middleware"
+	"github.com/fazamuttaqien/multifinance/pkg/telemetry"
 	"github.com/fazamuttaqien/multifinance/presenter"
-	"github.com/fazamuttaqien/multifinance/telemetry"
+
 	"github.com/gofiber/contrib/otelfiber/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"

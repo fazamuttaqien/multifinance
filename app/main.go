@@ -13,11 +13,12 @@ import (
 
 	"github.com/fazamuttaqien/multifinance/config"
 	"github.com/fazamuttaqien/multifinance/database"
-	"github.com/fazamuttaqien/multifinance/helper/cloudinary"
-	"github.com/fazamuttaqien/multifinance/model"
+	"github.com/fazamuttaqien/multifinance/internal/model"
+	"github.com/fazamuttaqien/multifinance/pkg/cloudinary"
+	"github.com/fazamuttaqien/multifinance/pkg/telemetry"
 	"github.com/fazamuttaqien/multifinance/presenter"
 	"github.com/fazamuttaqien/multifinance/router"
-	"github.com/fazamuttaqien/multifinance/telemetry"
+
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
 	"gorm.io/gorm"

@@ -1,19 +1,28 @@
 package presenter
 
 import (
-	"github.com/fazamuttaqien/multifinance/handler"
-	"github.com/fazamuttaqien/multifinance/repository"
-	"github.com/fazamuttaqien/multifinance/service"
-	"github.com/fazamuttaqien/multifinance/telemetry"
+	adminhandler "github.com/fazamuttaqien/multifinance/internal/handler/admin"
+	partnerhandler "github.com/fazamuttaqien/multifinance/internal/handler/partner"
+	profilehandler "github.com/fazamuttaqien/multifinance/internal/handler/profile"
+	customerrepo "github.com/fazamuttaqien/multifinance/internal/repository/customer"
+	limitrepo "github.com/fazamuttaqien/multifinance/internal/repository/limit"
+	tenorrepo "github.com/fazamuttaqien/multifinance/internal/repository/tenor"
+	transactionrepo "github.com/fazamuttaqien/multifinance/internal/repository/transaction"
+	adminsrv "github.com/fazamuttaqien/multifinance/internal/service/admin"
+	cloudinarysrv "github.com/fazamuttaqien/multifinance/internal/service/cloudinary"
+	partnersrv "github.com/fazamuttaqien/multifinance/internal/service/partner"
+	profilesrv "github.com/fazamuttaqien/multifinance/internal/service/profile"
+
+	"github.com/fazamuttaqien/multifinance/pkg/telemetry"
 
 	"github.com/cloudinary/cloudinary-go/v2"
 	"gorm.io/gorm"
 )
 
 type Presenter struct {
-	AdminPresenter   *handler.AdminHandler
-	PartnerPresenter *handler.PartnerHandler
-	ProfilePresenter *handler.ProfileHandler
+	AdminPresenter   *adminhandler.AdminHandler
+	PartnerPresenter *partnerhandler.PartnerHandler
+	ProfilePresenter *profilehandler.ProfileHandler
 }
 
 func NewPresenter(
@@ -24,7 +33,7 @@ func NewPresenter(
 	// Repository
 	customerRepositoryMeter := tel.MeterProvider.Meter("customer-repository-meter")
 	customerRepositoryTracer := tel.TracerProvider.Tracer("customer-repository-tracer")
-	customerRepository := repository.NewCustomerRepository(
+	customerRepository := customerrepo.NewCustomerRepository(
 		db,
 		customerRepositoryMeter,
 		customerRepositoryTracer,
@@ -33,7 +42,7 @@ func NewPresenter(
 
 	limitRepositoryMeter := tel.MeterProvider.Meter("limit-repository-meter")
 	limitRepositoryTracer := tel.TracerProvider.Tracer("limit-repository-tracer")
-	limitRepository := repository.NewLimitRepository(
+	limitRepository := limitrepo.NewLimitRepository(
 		db,
 		limitRepositoryMeter,
 		limitRepositoryTracer,
@@ -42,7 +51,7 @@ func NewPresenter(
 
 	tenorRepositoryMeter := tel.MeterProvider.Meter("limit-repository-meter")
 	tenorRepositoryTracer := tel.TracerProvider.Tracer("limit-repository-tracer")
-	tenorRepository := repository.NewTenorRepository(
+	tenorRepository := tenorrepo.NewTenorRepository(
 		db,
 		tenorRepositoryMeter,
 		tenorRepositoryTracer,
@@ -51,7 +60,7 @@ func NewPresenter(
 
 	transactionRepositoryMeter := tel.MeterProvider.Meter("limit-repository-meter")
 	transactionRepositoryTracer := tel.TracerProvider.Tracer("limit-repository-tracer")
-	transactionRepository := repository.NewTransactionRepository(
+	transactionRepository := transactionrepo.NewTransactionRepository(
 		db,
 		transactionRepositoryMeter,
 		transactionRepositoryTracer,
@@ -61,7 +70,7 @@ func NewPresenter(
 	// Service
 	adminServiceMeter := tel.MeterProvider.Meter("admin-service-meter")
 	adminServiceTracer := tel.TracerProvider.Tracer("admin-service-trace")
-	adminService := service.NewAdminService(
+	adminService := adminsrv.NewAdminService(
 		db,
 		customerRepository,
 		adminServiceMeter,
@@ -71,7 +80,7 @@ func NewPresenter(
 
 	partnerServiceMeter := tel.MeterProvider.Meter("partner-service-meter")
 	partnerServiceTracer := tel.TracerProvider.Tracer("partner-service-trace")
-	partnerService := service.NewPartnerService(
+	partnerService := partnersrv.NewPartnerService(
 		db,
 		customerRepository,
 		tenorRepository,
@@ -84,7 +93,7 @@ func NewPresenter(
 
 	profileServiceMeter := tel.MeterProvider.Meter("profile-service-meter")
 	profileServiceTracer := tel.TracerProvider.Tracer("profile-service-trace")
-	profileService := service.NewProfileService(
+	profileService := profilesrv.NewProfileService(
 		db,
 		customerRepository,
 		limitRepository,
@@ -95,12 +104,12 @@ func NewPresenter(
 		tel.Log,
 	)
 
-	cloudinaryService := service.NewCloudinaryService(cld)
+	cloudinaryService := cloudinarysrv.NewCloudinaryService(cld)
 
 	// Handler
 	adminHandlerMeter := tel.MeterProvider.Meter("admin-handler-meter")
 	adminHandlerTracer := tel.TracerProvider.Tracer("admin-handler-trace")
-	adminHandler := handler.NewAdminHandler(
+	adminHandler := adminhandler.NewAdminHandler(
 		adminService,
 		adminHandlerMeter,
 		adminHandlerTracer,
@@ -109,7 +118,7 @@ func NewPresenter(
 
 	partnerHandlerMeter := tel.MeterProvider.Meter("partner-handler-meter")
 	partnerHandlerTracer := tel.TracerProvider.Tracer("partner-handler-trace")
-	partnerHandler := handler.NewPartnerHandler(
+	partnerHandler := partnerhandler.NewPartnerHandler(
 		partnerService,
 		partnerHandlerMeter,
 		partnerHandlerTracer,
@@ -118,7 +127,7 @@ func NewPresenter(
 
 	profileHandlerMeter := tel.MeterProvider.Meter("profile-handler-meter")
 	profileHandlerTracer := tel.TracerProvider.Tracer("profile-handler-trace")
-	profileHandler := handler.NewProfileHandler(
+	profileHandler := profilehandler.NewProfileHandler(
 		profileService,
 		cloudinaryService,
 		profileHandlerMeter,

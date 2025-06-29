@@ -4,7 +4,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/fazamuttaqien/multifinance/domain"
+	"github.com/fazamuttaqien/multifinance/internal/domain"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )

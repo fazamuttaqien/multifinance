@@ -1,14 +1,12 @@
 name: loan_system
+
 services:
   mysql:
     image: mysql:8.0
     container_name: mysql
     restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: rootpassword123
-      MYSQL_DATABASE: loan_system
-      MYSQL_USER: loan_user
-      MYSQL_PASSWORD: loan_password123
+    env_file:
+      - .env.docker
     ports:
       - "3306:3306"
     volumes:
@@ -32,16 +30,33 @@ services:
     image: phpmyadmin/phpmyadmin:latest
     container_name: phpmyadmin
     restart: always
-    environment:
-      PMA_HOST: mysql
-      PMA_PORT: 3306
-      PMA_USER: root
-      PMA_PASSWORD: rootpassword123
-      MYSQL_ROOT_PASSWORD: rootpassword123
+    env_file:
+      - .env.docker
     ports:
       - "8080:80"
     depends_on:
       - mysql
+    networks:
+      - loan_network
+
+  alloy:
+    image: grafana/alloy:v1.9.2
+    container_name: alloy
+    ports:
+      - "12345:12345"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - .env.docker
+    command: >
+      run 
+      --server.http.listen-addr=0.0.0.0:12345 
+      --storage.path=/var/lib/alloy/data
+      /etc/alloy/config.alloy
+    restart: unless-stopped
     networks:
       - loan_network
 

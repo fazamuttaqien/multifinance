@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/fazamuttaqien/multifinance/helper/common"
+	"github.com/fazamuttaqien/multifinance/pkg/common"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
