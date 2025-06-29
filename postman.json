@@ -1,14 +1,14 @@
 {
   "info": {
-    "_postman_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-    "name": "PT XYZ Multifinance API (Final - Cookie & CSRF)",
+    "_postman_id": "ab068916-bb73-4abf-8702-22a9e3ebd018",
+    "name": "PT XYZ Multifinance API",
     "description": "Koleksi API lengkap untuk sistem PT XYZ Multifinance. Mengimplementasikan autentikasi JWT berbasis cookie HttpOnly dan proteksi CSRF berbasis sesi (Synchronizer Token Pattern).",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "21423457"
   },
   "item": [
     {
       "name": "0. Authentication & Setup",
-      "description": "Jalankan request di folder ini secara berurutan untuk setup sesi, mendapatkan token CSRF, dan melakukan login. Ini adalah langkah pertama sebelum mengakses endpoint lain.",
       "item": [
         {
           "name": "1. Get Initial CSRF Token",
@@ -24,7 +24,8 @@
                   "    console.log(\"Initial CSRF Token set: \" + jsonData.csrf_token);",
                   "}"
                 ],
-                "type": "text/javascript"
+                "type": "text/javascript",
+                "packages": {}
               }
             }
           ],
@@ -32,16 +33,22 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/csrf-token",
+              "raw": "{{baseUrl}}/auth/csrf-token",
               "host": ["{{baseUrl}}"],
-              "path": ["csrf-token"]
+              "path": ["auth", "csrf-token"]
             },
             "description": "Jalankan request ini PERTAMA KALI. Ini akan membuat sesi di server dan mengembalikan token CSRF awal yang diperlukan untuk login atau registrasi. Token akan disimpan secara otomatis di variabel `{{csrf_token}}`."
           },
           "response": [
             {
               "name": "Success",
-              "originalRequest": {},
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": ""
+                }
+              },
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
@@ -65,7 +72,16 @@
                   "    console.log(\"CSRF Token updated after login: \" + jsonData.csrf_token);",
                   "}"
                 ],
-                "type": "text/javascript"
+                "type": "text/javascript",
+                "packages": {}
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [""],
+                "type": "text/javascript",
+                "packages": {}
               }
             }
           ],
@@ -79,12 +95,13 @@
               {
                 "key": "X-CSRF-Token",
                 "value": "{{csrf_token}}",
-                "description": "Token ini diambil secara otomatis dari variabel yang diset oleh request sebelumnya."
+                "description": "Token ini diambil secara otomatis dari variabel yang diset oleh request sebelumnya.",
+                "disabled": true
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n    \"nik\": \"1010010110100101\",\n    \"password\": \"admin123\"\n}",
+              "raw": "{\n    \"nik\": \"3275010193040009\",\n    \"password\": \"customer123\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -101,7 +118,13 @@
           "response": [
             {
               "name": "Success",
-              "originalRequest": {},
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": ""
+                }
+              },
               "status": "OK",
               "code": 200,
               "_postman_previewlanguage": "json",
@@ -130,11 +153,11 @@
           },
           "response": []
         }
-      ]
+      ],
+      "description": "Jalankan request di folder ini secara berurutan untuk setup sesi, mendapatkan token CSRF, dan melakukan login. Ini adalah langkah pertama sebelum mengakses endpoint lain."
     },
     {
       "name": "1. Public APIs",
-      "description": "Endpoint yang dapat diakses tanpa login, namun mungkin memerlukan CSRF token.",
       "item": [
         {
           "name": "Register New Customer",
@@ -151,15 +174,20 @@
               "formdata": [
                 {
                   "key": "nik",
-                  "value": "3275010203040005"
+                  "value": "3275010193040009"
                 },
                 {
                   "key": "full_name",
                   "value": "Budi Santoso"
                 },
                 {
+                  "key": "password",
+                  "value": "customer123",
+                  "type": "text"
+                },
+                {
                   "key": "legal_name",
-                  "value": "BUDI SANTOSO"
+                  "value": "Budi Santoso"
                 },
                 {
                   "key": "birth_place",
@@ -175,28 +203,30 @@
                 },
                 {
                   "key": "ktp_photo",
-                  "type": "file"
+                  "type": "file",
+                  "src": "/C:/Users/fazamuttaqien/Pictures/IconTechStack/Adobe-Premiere-Pro.png"
                 },
                 {
                   "key": "selfie_photo",
-                  "type": "file"
+                  "type": "file",
+                  "src": "/C:/Users/fazamuttaqien/Pictures/IconTechStack/Ansible.png"
                 }
               ]
             },
             "url": {
-              "raw": "{{baseUrl}}/customers/register",
+              "raw": "{{baseUrl}}/auth/register",
               "host": ["{{baseUrl}}"],
-              "path": ["customers", "register"]
+              "path": ["auth", "register"]
             },
             "description": "Mendaftarkan konsumen baru. Pastikan Anda telah menjalankan 'Get Initial CSRF Token' terlebih dahulu."
           },
           "response": []
         }
-      ]
+      ],
+      "description": "Endpoint yang dapat diakses tanpa login, namun mungkin memerlukan CSRF token."
     },
     {
       "name": "2. Admin APIs",
-      "description": "Membutuhkan login sebagai Admin (ID: 1).",
       "item": [
         {
           "name": "List Customers",
@@ -301,11 +331,11 @@
           },
           "response": []
         }
-      ]
+      ],
+      "description": "Membutuhkan login sebagai Admin (ID: 1)."
     },
     {
       "name": "3. Partner APIs",
-      "description": "Membutuhkan login sebagai Partner.",
       "item": [
         {
           "name": "Create Transaction",
@@ -323,7 +353,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customer_nik\": \"3275010203040005\",\n  \"tenor_months\": 6,\n  \"asset_name\": \"Motor Yamaha NMAX\",\n  \"otr_amount\": 35000000,\n  \"admin_fee\": 750000\n}",
+              "raw": "{\n  \"customer_nik\": \"3275010193040009\",\n  \"tenor_months\": 6,\n  \"asset_name\": \"Motor Yamaha NMAX\",\n  \"otr_amount\": 35000,\n  \"admin_fee\": 7500\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -354,7 +384,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customer_nik\": \"3275010203040005\",\n  \"tenor_months\": 6,\n  \"transaction_amount\": 10000000\n}",
+              "raw": "{\n  \"customer_nik\": \"3275010193040009\",\n  \"tenor_months\": 6,\n  \"transaction_amount\": 10000\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -369,11 +399,11 @@
           },
           "response": []
         }
-      ]
+      ],
+      "description": "Membutuhkan login sebagai Partner."
     },
     {
       "name": "4. Customer (Me) APIs",
-      "description": "Membutuhkan login sebagai Customer biasa (bukan Admin).",
       "item": [
         {
           "name": "Get My Profile",
@@ -455,12 +485,10 @@
           },
           "response": []
         }
-      ]
+      ],
+      "description": "Membutuhkan login sebagai Customer biasa (bukan Admin)."
     }
   ],
-  "auth": {
-    "type": "noauth"
-  },
   "variable": [
     {
       "key": "baseUrl",
@@ -468,8 +496,7 @@
     },
     {
       "key": "csrf_token",
-      "value": "",
-      "description": "Variabel ini dikelola secara otomatis oleh skrip di folder 'Authentication & Setup'."
+      "value": ""
     }
   ]
 }
