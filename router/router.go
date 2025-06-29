@@ -37,7 +37,7 @@ func NewRouter(
 	customCSRF := middleware.NewCustomCSRFMiddleware(store)
 	requireAdmin := middleware.RequireRole(domain.AdminRole)
 	requireCustomer := middleware.RequireRole(domain.CustomerRole)
-	requirePartner := middleware.RequireRole(domain.PartnerRole)
+	// requirePartner := middleware.RequireRole(domain.PartnerRole)
 
 	app := fiber.New(fiber.Config{
 		BodyLimit:    10 * 1024 * 1024,
@@ -141,7 +141,7 @@ func NewRouter(
 		adminCustomersAPI.Post("/:customerId/verify", presenter.AdminPresenter.VerifyCustomer)
 	}
 
-	partnerAPI := api.Group("/partners", jwtAuth, customCSRF, requirePartner)
+	partnerAPI := api.Group("/partners", jwtAuth, customCSRF, requireCustomer)
 	{
 		partnerAPI.Post("/transactions", presenter.PartnerPresenter.CreateTransaction)
 		partnerAPI.Post("/check-limit", presenter.PartnerPresenter.CheckLimit)

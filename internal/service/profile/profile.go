@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"time"
 
@@ -132,6 +133,8 @@ func (p *profileService) Create(ctx context.Context, customer *domain.Customer) 
 	customer.VerificationStatus = domain.VerificationPending
 
 	hashPassword, err := password.HashPassword(customer.Password)
+	log.Println("hashPassword:", hashPassword)
+	log.Println("customer:", customer)
 	if err != nil {
 		return nil, err
 	}

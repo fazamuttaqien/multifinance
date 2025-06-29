@@ -144,9 +144,11 @@ func (suite *PartnerServiceTestSuite) seedTestData() (customer *model.Customer, 
 	// Create test customer
 	customer = &model.Customer{
 		NIK:                "1234567890123456",
-		FullName:           "Customer1",
-		LegalName:          "Customer1",
+		FullName:           "John Smith",
+		LegalName:          "John Smith",
 		BirthPlace:         "Jakarta",
+		Password:           "johnsmith123",
+		Role:               "customer",
 		BirthDate:          time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
 		Salary:             5000000,
 		KtpPhotoUrl:        "https://example.com/ktp.jpg",
@@ -260,8 +262,10 @@ func (suite *PartnerServiceTestSuite) TestCheckLimit_Failure_CustomerNotVerified
 	// Arrange
 	customer := &model.Customer{
 		NIK:                "1234567890123456",
-		FullName:           "Unverified Customer",
-		LegalName:          "Unverified Customer Legal",
+		FullName:           "John Smith",
+		LegalName:          "John Smith",
+		Password:           "johnsmith123",
+		Role:               "customer",
 		BirthPlace:         "Jakarta",
 		BirthDate:          time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC),
 		Salary:             5000000,
@@ -291,7 +295,10 @@ func (suite *PartnerServiceTestSuite) TestCheckLimit_Failure_TenorNotFound() {
 	// Arrange
 	customer := &model.Customer{
 		NIK:                "1234567890123456",
-		FullName:           "Test Customer",
+		FullName:           "John Smith",
+		LegalName:          "John Smith",
+		Password:           "johnsmith123",
+		Role:               "customer",
 		BirthDate:          time.Date(1991, 1, 1, 0, 0, 0, 0, time.UTC),
 		VerificationStatus: model.VerificationVerified,
 		CreatedAt:          time.Now(),
@@ -319,7 +326,10 @@ func (suite *PartnerServiceTestSuite) TestCheckLimit_Failure_LimitNotSet() {
 	// Arrange
 	customer := &model.Customer{
 		NIK:                "1234567890123456",
-		FullName:           "Test Customer",
+		FullName:           "John Smith",
+		LegalName:          "John Smith",
+		Password:           "johnsmith123",
+		Role:               "customer",
 		BirthDate:          time.Date(1992, 1, 1, 0, 0, 0, 0, time.UTC),
 		VerificationStatus: model.VerificationVerified,
 		CreatedAt:          time.Now(),
@@ -432,7 +442,10 @@ func (suite *PartnerServiceTestSuite) TestCreateTransaction_Failure_CustomerNotV
 	// Arrange
 	customer := &model.Customer{
 		NIK:                "1234567890123456",
-		FullName:           "Unverified Customer",
+		FullName:           "John Smith",
+		LegalName:          "John Smith",
+		Password:           "johnsmith123",
+		Role:               "customer",
 		BirthDate:          time.Date(1995, 1, 1, 0, 0, 0, 0, time.UTC),
 		VerificationStatus: model.VerificationPending,
 		CreatedAt:          time.Now(),
@@ -462,7 +475,10 @@ func (suite *PartnerServiceTestSuite) TestCreateTransaction_Failure_TenorNotFoun
 	// Arrange
 	customer := &model.Customer{
 		NIK:                "1234567890123456",
-		FullName:           "Test Customer",
+		FullName:           "John Smith",
+		LegalName:          "John Smith",
+		Password:           "johnsmith123",
+		Role:               "customer",
 		BirthDate:          time.Date(1993, 1, 1, 0, 0, 0, 0, time.UTC),
 		VerificationStatus: model.VerificationVerified,
 		CreatedAt:          time.Now(),
@@ -492,7 +508,10 @@ func (suite *PartnerServiceTestSuite) TestCreateTransaction_Failure_LimitNotSet(
 	// Arrange
 	customer := &model.Customer{
 		NIK:                "1234567890123456",
-		FullName:           "Test Customer",
+		FullName:           "John Smith",
+		LegalName:          "John Smith",
+		Password:           "johnsmith123",
+		Role:               "customer",
 		BirthDate:          time.Date(1994, 1, 1, 0, 0, 0, 0, time.UTC),
 		VerificationStatus: model.VerificationVerified,
 		CreatedAt:          time.Now(),
@@ -532,14 +551,14 @@ func (suite *PartnerServiceTestSuite) TestCreateTransaction_Success_WithExisting
 
 	// Create existing transaction
 	existingTx := &model.Transaction{
-		CustomerID: customer.ID,
-		TenorID:    tenor.ID,
-		AssetName:  "Existing Asset",
-		OTRAmount:  20000,
-		AdminFee:   500,
-		// InstallmentAmount: 3500,
-		// InterestAmount:    1000,
-		Status: model.TransactionActive,
+		CustomerID:             customer.ID,
+		TenorID:                tenor.ID,
+		AssetName:              "Existing Asset",
+		OTRAmount:              20000,
+		AdminFee:               500,
+		TotalInstallmentAmount: 3500,
+		TotalInterest:          1000,
+		Status:                 model.TransactionActive,
 	}
 	err := suite.db.Create(existingTx).Error
 	suite.Require().NoError(err)

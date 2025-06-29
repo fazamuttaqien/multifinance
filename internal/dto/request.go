@@ -16,6 +16,7 @@ type CreateProfileRequest struct {
 	NIK         string                `form:"nik" validate:"required,len=16,numeric"`
 	FullName    string                `form:"full_name" validate:"required"`
 	LegalName   string                `form:"legal_name" validate:"required"`
+	Password    string                `form:"password" validate:"required"`
 	BirthPlace  string                `form:"birth_place" validate:"required"`
 	BirthDate   string                `form:"birth_date" validate:"required,datetime=2006-01-02"`
 	Salary      float64               `form:"salary" validate:"required,gt=0"`
@@ -64,6 +65,7 @@ func RegisterToEntity(req CreateProfileRequest, ktpUrl, selfieUrl string) *domai
 		NIK:                req.NIK,
 		FullName:           req.FullName,
 		LegalName:          req.LegalName,
+		Password:           req.Password,
 		BirthPlace:         req.BirthPlace,
 		BirthDate:          birthDate,
 		Salary:             req.Salary,
