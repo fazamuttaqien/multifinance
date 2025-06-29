@@ -72,7 +72,7 @@ jobs:
         run: |
           # Create directories for coverage reports
           mkdir -p coverage
-          
+
           # Run tests for all packages and generate individual coverage profiles
           go test -v -race -coverprofile=coverage/repo.out ./internal/repository/tests/...
           go test -v -race -coverprofile=coverage/service.out ./internal/service/tests/...
@@ -82,10 +82,10 @@ jobs:
         run: |
           # Install gocovmerge if not present
           go install github.com/wadey/gocovmerge@latest
-          
+
           # Merge coverage files from the coverage directory
           gocovmerge coverage/*.out > combined.out
-          
+
           # Generate a single HTML report and function coverage output
           go tool cover -html=combined.out -o coverage.html
           echo "--- Total Coverage ---"
@@ -136,7 +136,7 @@ jobs:
   #       uses: actions/download-artifact@v4
   #       with:
   #         name: go-app
-      
+
   #     # Make the artifact executable
   #     - name: Make binary executable
   #       run: chmod +x ./go-app
@@ -179,23 +179,26 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "1.24"
-      
+
       # It's a good practice to download dependencies before running security tools
-      - name: Install dependencies
-        run: go mod download
+      # - name: Install dependencies
+      #   run: go mod download
 
       - name: Run Go security scanner (gosec)
         run: |
+          cd /tmp 
           go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+          cd -
           gosec -fmt json -out gosec-report.json ./...
 
       - name: Run Go vulnerability check (govulncheck)
         run: |
+          cd /tmp
           go install golang.org/x/vuln/cmd/govulncheck@latest
+          cd -
           govulncheck ./... > govulncheck-report.txt
 
       - name: Upload security reports
-        # Updated to v4 and ensuring it always runs
         uses: actions/upload-artifact@v4
         if: always()
         with:
