@@ -26,6 +26,7 @@ type Config struct {
 	MYSQL_USERNAME              string
 	MYSQL_PASSWORD              string
 	MYSQL_DBNAME                string
+	JWT_SECRET_KEY              string
 	SHUTDOWN_TIMEOUT            time.Duration
 }
 
@@ -78,6 +79,7 @@ func LoadConfig() (*Config, error) {
 		MYSQL_USERNAME:              Env("MYSQL_USERNAME", "root"),
 		MYSQL_PASSWORD:              Env("MYSQL_PASSWORD", ""),
 		MYSQL_DBNAME:                Env("MYSQL_DBNAME", "loan_system"),
+		JWT_SECRET_KEY:              Env("JWT_SECRET_KEY", ""),
 		SHUTDOWN_TIMEOUT:            Duration("SHUTDOWN_TIMEOUT", 15*time.Second),
 	}
 

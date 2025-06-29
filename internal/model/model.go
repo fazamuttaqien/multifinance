@@ -6,12 +6,22 @@ import (
 	"gorm.io/gorm"
 )
 
+type Role string
+
+const (
+	AdminRole    Role = "admin"
+	CustomerRole Role = "customer"
+	PartnerRole  Role = "partner"
+)
+
 // Customer represents the customers table
 type Customer struct {
 	ID                 uint64             `gorm:"primaryKey;autoIncrement" json:"id"`
 	NIK                string             `gorm:"type:varchar(16);not null;uniqueIndex" json:"nik"`
 	FullName           string             `gorm:"type:varchar(255);not null" json:"full_name"`
 	LegalName          string             `gorm:"type:varchar(255);not null" json:"legal_name"`
+	Password           string             `gorm:"type:varchar(255);not null" json:"-"`
+	Role               Role               `gorm:"type:enum('admin','customer','partner');default:'customer';not null" json:"role"`
 	BirthPlace         string             `gorm:"type:varchar(100);not null" json:"birth_place"`
 	BirthDate          time.Time          `gorm:"type:date;not null" json:"birth_date"`
 	Salary             float64            `gorm:"type:decimal(15,2);not null" json:"salary"`

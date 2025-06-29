@@ -35,3 +35,7 @@ type AdminServices interface {
 type CloudinaryService interface {
 	UploadImage(ctx context.Context, file *multipart.FileHeader, folder string) (string, error)
 }
+
+type PrivateService interface {
+	Login(ctx context.Context, req dto.LoginRequest) (*dto.LoginResponse, error)
+}

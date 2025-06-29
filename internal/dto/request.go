@@ -7,6 +7,11 @@ import (
 	"github.com/fazamuttaqien/multifinance/internal/domain"
 )
 
+type LoginRequest struct {
+	NIK      string `json:"nik" validate:"required"`
+	Password string `json:"password" validate:"required"`
+}
+
 type CreateProfileRequest struct {
 	NIK         string                `form:"nik" validate:"required,len=16,numeric"`
 	FullName    string                `form:"full_name" validate:"required"`

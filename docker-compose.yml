@@ -6,13 +6,13 @@ services:
     container_name: mysql
     restart: always
     env_file:
-      - .env.docker
+      - ./docker-config/.env.docker
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./mysql-config:/etc/mysql/conf.d
-      # - ./init-scripts:/docker-entrypoint-initdb.d
+      - ./docker-config/mysql-config:/etc/mysql/conf.d
+      # - ./docker-config/init-scripts:/docker-entrypoint-initdb.d
     networks:
       - loan_network
     command: >
@@ -31,7 +31,7 @@ services:
     container_name: phpmyadmin
     restart: always
     env_file:
-      - .env.docker
+      - ./docker-config/.env.docker
     ports:
       - "8080:80"
     depends_on:
@@ -47,10 +47,10 @@ services:
       - "4317:4317"
       - "4318:4318"
     volumes:
-      - ./alloy/config.alloy:/etc/alloy/config.alloy
+      - ./docker-config/alloy/config.alloy:/etc/alloy/config.alloy
       - /var/run/docker.sock:/var/run/docker.sock
     env_file:
-      - .env.docker
+      - ./docker-config/.env.docker
     command: >
       run 
       --server.http.listen-addr=0.0.0.0:12345 

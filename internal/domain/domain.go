@@ -1,12 +1,26 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+)
+
+type Role string
+
+const (
+	AdminRole    Role = "admin"
+	CustomerRole Role = "customer"
+	PartnerRole  Role = "partner"
+)
 
 type Customer struct {
 	ID                 uint64
 	NIK                string
 	FullName           string
 	LegalName          string
+	Password           string
+	Role               Role
 	BirthPlace         string
 	BirthDate          time.Time
 	Salary             float64
@@ -72,6 +86,12 @@ const (
 	TransactionPaidOff   TransactionStatus = "PAID_OFF"
 	TransactionCancelled TransactionStatus = "CANCELLED"
 )
+
+type JwtCustomClaims struct {
+	UserID uint64 `json:"user_id"`
+	Role   Role   `json:"role"`
+	jwt.RegisteredClaims
+}
 
 type Params struct {
 	Status string

@@ -26,7 +26,10 @@ require (
 	gorm.io/gorm v1.30.0
 )
 
-require go.opentelemetry.io/contrib v1.20.0 // indirect
+require (
+	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
+	go.opentelemetry.io/contrib v1.20.0 // indirect
+)
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect

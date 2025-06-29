@@ -1,5 +1,9 @@
 package dto
 
+type LoginResponse struct {
+	Token string `json:"token"`
+}
+
 type LimitDetailResponse struct {
 	TenorMonths    uint8   `json:"tenor_months"`
 	LimitAmount    float64 `json:"limit_amount"`

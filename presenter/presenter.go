@@ -1,8 +1,10 @@
 package presenter
 
 import (
+	"github.com/fazamuttaqien/multifinance/config"
 	adminhandler "github.com/fazamuttaqien/multifinance/internal/handler/admin"
 	partnerhandler "github.com/fazamuttaqien/multifinance/internal/handler/partner"
+	privatehandler "github.com/fazamuttaqien/multifinance/internal/handler/private"
 	profilehandler "github.com/fazamuttaqien/multifinance/internal/handler/profile"
 	customerrepo "github.com/fazamuttaqien/multifinance/internal/repository/customer"
 	limitrepo "github.com/fazamuttaqien/multifinance/internal/repository/limit"
@@ -11,6 +13,7 @@ import (
 	adminsrv "github.com/fazamuttaqien/multifinance/internal/service/admin"
 	cloudinarysrv "github.com/fazamuttaqien/multifinance/internal/service/cloudinary"
 	partnersrv "github.com/fazamuttaqien/multifinance/internal/service/partner"
+	privatesrv "github.com/fazamuttaqien/multifinance/internal/service/private"
 	profilesrv "github.com/fazamuttaqien/multifinance/internal/service/profile"
 
 	"github.com/fazamuttaqien/multifinance/pkg/telemetry"
@@ -23,12 +26,14 @@ type Presenter struct {
 	AdminPresenter   *adminhandler.AdminHandler
 	PartnerPresenter *partnerhandler.PartnerHandler
 	ProfilePresenter *profilehandler.ProfileHandler
+	PrivatePresenter *privatehandler.PrivateHandler
 }
 
 func NewPresenter(
 	db *gorm.DB,
 	cld *cloudinary.Cloudinary,
 	tel *telemetry.OpenTelemetry,
+	cfg *config.Config,
 ) Presenter {
 	// Repository
 	customerRepositoryMeter := tel.MeterProvider.Meter("customer-repository-meter")
@@ -104,6 +109,17 @@ func NewPresenter(
 		tel.Log,
 	)
 
+	privateServiceMeter := tel.MeterProvider.Meter("private-service-meter")
+	privateServiceTracer := tel.TracerProvider.Tracer("private-service-trace")
+	privateService := privatesrv.NewPrivateService(
+		db,
+		cfg.JWT_SECRET_KEY,
+		customerRepository,
+		privateServiceMeter,
+		privateServiceTracer,
+		tel.Log,
+	)
+
 	cloudinaryService := cloudinarysrv.NewCloudinaryService(cld)
 
 	// Handler
@@ -135,9 +151,19 @@ func NewPresenter(
 		tel.Log,
 	)
 
+	privateHandlerMeter := tel.MeterProvider.Meter("private-handler-meter")
+	privateHandlerTracer := tel.TracerProvider.Tracer("private-handler-trace")
+	privateHandler := privatehandler.NewPrivateHandler(
+		privateService,
+		privateHandlerMeter,
+		privateHandlerTracer,
+		tel.Log,
+	)
+
 	return Presenter{
 		AdminPresenter:   adminHandler,
 		PartnerPresenter: partnerHandler,
 		ProfilePresenter: profileHandler,
+		PrivatePresenter: privateHandler,
 	}
 }

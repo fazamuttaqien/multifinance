@@ -15,6 +15,7 @@ import (
 	"github.com/fazamuttaqien/multifinance/database"
 	"github.com/fazamuttaqien/multifinance/internal/model"
 	"github.com/fazamuttaqien/multifinance/pkg/cloudinary"
+	"github.com/fazamuttaqien/multifinance/pkg/password"
 	"github.com/fazamuttaqien/multifinance/pkg/telemetry"
 	"github.com/fazamuttaqien/multifinance/presenter"
 	"github.com/fazamuttaqien/multifinance/router"
@@ -165,6 +166,7 @@ func SeedAdmin(db *gorm.DB) {
 			ID:                 AdminID,
 			NIK:                AdminNIK,
 			FullName:           "Administrator",
+			Role:               model.AdminRole,
 			LegalName:          "System Administrator",
 			BirthPlace:         "System",
 			BirthDate:          time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC),
@@ -172,6 +174,11 @@ func SeedAdmin(db *gorm.DB) {
 			KtpPhotoUrl:        "https://via.placeholder.com/150",
 			SelfiePhotoUrl:     "https://via.placeholder.com/150",
 			VerificationStatus: model.VerificationVerified,
+		}
+
+		_, err := password.HashPassword("admin123")
+		if err != nil {
+			slog.Error("Failed to hash admin password", "error", err)
 		}
 
 		if err := db.Create(&newAdmin).Error; err != nil {

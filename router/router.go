@@ -56,7 +56,6 @@ func NewRouter(
 		TimeFormat: "2006-01-02 15:04:05",
 	}))
 
-	// OpenTelemetry Fiber
 	app.Use(otelfiber.Middleware(
 		otelfiber.WithTracerProvider(tel.TracerProvider),
 		otelfiber.WithPropagators(otel.GetTextMapPropagator()),
@@ -87,6 +86,7 @@ func NewRouter(
 	api := app.Group("/api/v1")
 
 	api.Post("/register", presenter.ProfilePresenter.Register)
+	api.Post("/login", presenter.PrivatePresenter.Login)
 
 	customersAPI := api.Group("/customers", customerAuth)
 	{
@@ -97,6 +97,7 @@ func NewRouter(
 	}
 
 	adminAPI := api.Group("/admin", adminAuth)
+
 	adminCustomersAPI := adminAPI.Group("/customers")
 	{
 		adminCustomersAPI.Post("/:customerId/limits", presenter.AdminPresenter.SetLimits)
