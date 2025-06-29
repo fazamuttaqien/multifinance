@@ -23,7 +23,7 @@ type Config struct {
 	CLOUDINARY_API_SECRET       string
 	MYSQL_HOST                  string
 	MYSQL_PORT                  string
-	MYSQL_USERNAME              string
+	MYSQL_USER                  string
 	MYSQL_PASSWORD              string
 	MYSQL_DBNAME                string
 	REDIS_ADDRESS               string
@@ -76,9 +76,9 @@ func LoadConfig() (*Config, error) {
 		CLOUDINARY_CLOUD:            Env("CLOUDINARY_CLOUD", ""),
 		CLOUDINARY_API_KEY:          Env("CLOUDINARY_API_KEY", ""),
 		CLOUDINARY_API_SECRET:       Env("CLOUDINARY_API_SECRET", ""),
-		MYSQL_HOST:                  Env("MYSQL_HOST", "localhost"),
+		MYSQL_HOST:                  Env("MYSQL_HOST", "127.0.0.1"),
 		MYSQL_PORT:                  Env("MYSQL_PORT", "3306"),
-		MYSQL_USERNAME:              Env("MYSQL_USERNAME", "root"),
+		MYSQL_USER:                  Env("MYSQL_USER", "root"),
 		MYSQL_PASSWORD:              Env("MYSQL_PASSWORD", ""),
 		MYSQL_DBNAME:                Env("MYSQL_DBNAME", "loan_system"),
 		REDIS_ADDRESS:               Env("REDIS_ADDRESS", "localhost:6379"),

@@ -38,9 +38,9 @@ func LoadConfigFromEnv() *DatabaseConfig {
 	}
 
 	return &DatabaseConfig{
-		Host:         common.GetEnv("MYSQL_HOST", "localhost"),
+		Host:         common.GetEnv("MYSQL_HOST", "127.0.0.1"),
 		Port:         port,
-		Username:     common.GetEnv("MYSQL_USERNAME", "root"),
+		Username:     common.GetEnv("MYSQL_USER", "root"),
 		Password:     common.GetEnv("MYSQL_PASSWORD", ""),
 		DatabaseName: common.GetEnv("MYSQL_NAME", "loan_system"),
 		Charset:      common.GetEnv("MYSQL_CHARSET", "uft8mb4"),

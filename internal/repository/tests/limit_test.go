@@ -45,7 +45,7 @@ func (suite *LimitRepositoryTestSuite) SetupSuite() {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8mb4&parseTime=True&loc=Local",
 		common.GetEnv("MYSQL_USER", "root"),
 		common.GetEnv("MYSQL_PASSWORD", "rootpassword123"),
-		common.GetEnv("MYSQL_HOST", "localhost"),
+		common.GetEnv("MYSQL_HOST", "127.0.0.1"),
 		common.GetEnv("MYSQL_PORT", "3306"),
 	)
 	sqlDB, err := sql.Open("mysql", dsn)
@@ -61,7 +61,7 @@ func (suite *LimitRepositoryTestSuite) SetupSuite() {
 	testDSN := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		common.GetEnv("MYSQL_USER", "root"),
 		common.GetEnv("MYSQL_PASSWORD", "rootpassword123"),
-		common.GetEnv("MYSQL_HOST", "localhost"),
+		common.GetEnv("MYSQL_HOST", "127.0.0.1"),
 		common.GetEnv("MYSQL_PORT", "3306"),
 		testDBName,
 	)
@@ -90,7 +90,7 @@ func (suite *LimitRepositoryTestSuite) TearDownSuite() {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8mb4&parseTime=True&loc=Local",
 		common.GetEnv("MYSQL_USER", "root"),
 		common.GetEnv("MYSQL_PASSWORD", "rootpassword123"),
-		common.GetEnv("MYSQL_HOST", "localhost"),
+		common.GetEnv("MYSQL_HOST", "127.0.0.1"),
 		common.GetEnv("MYSQL_PORT", "3306"),
 	)
 	sqlDB, err := sql.Open("mysql", dsn)

@@ -52,7 +52,7 @@ func (suite *PartnerServiceTestSuite) SetupSuite() {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/?charset=utf8mb4&parseTime=True&loc=Local",
 		common.GetEnv("MYSQL_USER", "root"),
 		common.GetEnv("MYSQL_PASSWORD", "rootpassword123"),
-		common.GetEnv("MYSQL_HOST", "localhost"),
+		common.GetEnv("MYSQL_HOST", "127.0.0.1"),
 		common.GetEnv("MYSQL_PORT", "3306"),
 	)
 
@@ -75,7 +75,7 @@ func (suite *PartnerServiceTestSuite) SetupSuite() {
 	testDSN := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		common.GetEnv("MYSQL_USER", "root"),
 		common.GetEnv("MYSQL_PASSWORD", "rootpassword123"),
-		common.GetEnv("MYSQL_HOST", "localhost"),
+		common.GetEnv("MYSQL_HOST", "127.0.0.1"),
 		common.GetEnv("MYSQL_PORT", "3306"),
 		testDbName,
 	)
