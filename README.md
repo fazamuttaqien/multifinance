@@ -6,7 +6,11 @@ Alur yang Anda sebutkan (`main` -> `presenter` -> `router` -> `handler` -> `serv
 
 ### Diagram Arsitektur
 
+---
+
 ![flow-image](./img/architecture.png "flow")
+
+---
 
 ### Penjelasan Detail per Lapisan
 
@@ -191,5 +195,10 @@ Alur ini menjelaskan perjalanan lengkap seorang pengguna, mulai dari tidak memil
 2.  **Aksi Klien**: Menampilkan halaman "Transaksi Berhasil".
 3.  **Hasil**: Transaksi baru tercatat, dan limit kredit pengguna telah berkurang secara akurat dan aman.
 
+---
+
 ### Diagram Alur Konseptual
-![flow-image](./img/flow.png "flow")
+
+![flow-image](./img/architecture.png "flow")
+
+---
