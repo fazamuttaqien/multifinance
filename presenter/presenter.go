@@ -15,6 +15,7 @@ import (
 	partnersrv "github.com/fazamuttaqien/multifinance/internal/service/partner"
 	privatesrv "github.com/fazamuttaqien/multifinance/internal/service/private"
 	profilesrv "github.com/fazamuttaqien/multifinance/internal/service/profile"
+	"github.com/gofiber/fiber/v2/middleware/session"
 
 	"github.com/fazamuttaqien/multifinance/pkg/telemetry"
 
@@ -34,6 +35,7 @@ func NewPresenter(
 	cld *cloudinary.Cloudinary,
 	tel *telemetry.OpenTelemetry,
 	cfg *config.Config,
+	store *session.Store,
 ) Presenter {
 	// Repository
 	customerRepositoryMeter := tel.MeterProvider.Meter("customer-repository-meter")
@@ -155,6 +157,7 @@ func NewPresenter(
 	privateHandlerTracer := tel.TracerProvider.Tracer("private-handler-trace")
 	privateHandler := privatehandler.NewPrivateHandler(
 		privateService,
+		store,
 		privateHandlerMeter,
 		privateHandlerTracer,
 		tel.Log,

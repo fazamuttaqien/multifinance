@@ -12,15 +12,16 @@ import (
 	"time"
 
 	"github.com/fazamuttaqien/multifinance/config"
-	"github.com/fazamuttaqien/multifinance/internal/model"
 	mysqldb "github.com/fazamuttaqien/multifinance/infra/mysql"
+	redisdb "github.com/fazamuttaqien/multifinance/infra/redis"
+	"github.com/fazamuttaqien/multifinance/internal/model"
 	"github.com/fazamuttaqien/multifinance/pkg/cloudinary"
 	"github.com/fazamuttaqien/multifinance/pkg/password"
 	ratelimiter "github.com/fazamuttaqien/multifinance/pkg/rate-limiter"
 	"github.com/fazamuttaqien/multifinance/pkg/telemetry"
 	"github.com/fazamuttaqien/multifinance/presenter"
-	redisdb "github.com/fazamuttaqien/multifinance/infra/redis"
 	"github.com/fazamuttaqien/multifinance/router"
+	"github.com/gofiber/fiber/v2/middleware/session"
 
 	"github.com/joho/godotenv"
 	"go.uber.org/zap"
@@ -117,8 +118,14 @@ func main() {
 		panic("Failed to initialize rate limiter")
 	}
 
-	presenter := presenter.NewPresenter(db, cld, tel, cfg)
-	router := router.NewRouter(presenter, db, tel, cfg, limiter)
+	store := session.New(session.Config{
+		Expiration:     24 * time.Hour,
+		CookieSecure:   false,
+		CookieSameSite: "Strict",
+	})
+
+	presenter := presenter.NewPresenter(db, cld, tel, cfg, store)
+	router := router.NewRouter(presenter, db, tel, cfg, limiter, store)
 
 	addr := ":" + cfg.SERVER_PORT
 
@@ -189,11 +196,12 @@ func SeedAdmin(db *gorm.DB) {
 			VerificationStatus: model.VerificationVerified,
 		}
 
-		_, err := password.HashPassword("admin123")
+		hashPassword, err := password.HashPassword("admin123")
 		if err != nil {
 			slog.Error("Failed to hash admin password", "error", err)
 		}
 
+		newAdmin.Password = hashPassword
 		if err := db.Create(&newAdmin).Error; err != nil {
 			slog.Error("Failed to seed admin user", "error", err)
 			os.Exit(1)

@@ -10,6 +10,7 @@ import (
 	"github.com/fazamuttaqien/multifinance/internal/domain"
 	"github.com/fazamuttaqien/multifinance/internal/dto"
 	"github.com/fazamuttaqien/multifinance/internal/service"
+	"github.com/fazamuttaqien/multifinance/middleware"
 	"github.com/fazamuttaqien/multifinance/pkg/cloudinary"
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
@@ -281,13 +282,13 @@ func (h *ProfileHandler) GetMyProfile(c *fiber.Ctx) error {
 	h.log.Debug("Received get my profile request", zap.String("path", c.Path()))
 	h.requestCount.Add(ctx, 1, metric.WithAttributes(attribute.String("endpoint", c.Path()), attribute.String("method", c.Method())))
 
-	customerID, err := getCustomerIDFromLocals(c)
+	claims, err := middleware.GetClaimsFromLocals(c)
 	if err != nil {
 		return h.recordError(ctx, span, c, start, err, fiber.StatusUnauthorized, "auth_error", "Unauthorized: Customer ID not found")
 	}
-	span.SetAttributes(attribute.Int64("customer.id", int64(customerID)))
+	span.SetAttributes(attribute.Int64("customer.id", int64(claims.UserID)))
 
-	customer, err := h.profileService.GetMyProfile(c.Context(), customerID)
+	customer, err := h.profileService.GetMyProfile(c.Context(), claims.UserID)
 	if err != nil {
 		return h.recordError(ctx, span, c, start, err, fiber.StatusInternalServerError, "service_error", "Failed to get profile")
 	}
@@ -308,11 +309,11 @@ func (h *ProfileHandler) UpdateMyProfile(c *fiber.Ctx) error {
 	h.log.Debug("Received update my profile request", zap.String("path", c.Path()))
 	h.requestCount.Add(ctx, 1, metric.WithAttributes(attribute.String("endpoint", c.Path()), attribute.String("method", c.Method())))
 
-	customerID, err := getCustomerIDFromLocals(c)
+	claims, err := middleware.GetClaimsFromLocals(c)
 	if err != nil {
 		return h.recordError(ctx, span, c, start, err, fiber.StatusUnauthorized, "auth_error", "Unauthorized: Customer ID not found")
 	}
-	span.SetAttributes(attribute.Int64("customer.id", int64(customerID)))
+	span.SetAttributes(attribute.Int64("customer.id", int64(claims.UserID)))
 
 	var req dto.UpdateProfileRequest
 	if err := c.BodyParser(&req); err != nil {
@@ -324,7 +325,7 @@ func (h *ProfileHandler) UpdateMyProfile(c *fiber.Ctx) error {
 	}
 
 	dtoUpdate := dto.UpdateToEntity(req)
-	if err := h.profileService.Update(c.Context(), customerID, dtoUpdate); err != nil {
+	if err := h.profileService.Update(c.Context(), claims.UserID, dtoUpdate); err != nil {
 		return h.recordError(ctx, span, c, start, err, fiber.StatusInternalServerError, "service_error", "Failed to update profile")
 	}
 
@@ -344,13 +345,13 @@ func (h *ProfileHandler) GetMyLimits(c *fiber.Ctx) error {
 	h.log.Debug("Received get my limits request", zap.String("path", c.Path()))
 	h.requestCount.Add(ctx, 1, metric.WithAttributes(attribute.String("endpoint", c.Path()), attribute.String("method", c.Method())))
 
-	customerID, err := getCustomerIDFromLocals(c)
+	claims, err := middleware.GetClaimsFromLocals(c)
 	if err != nil {
 		return h.recordError(ctx, span, c, start, err, fiber.StatusUnauthorized, "auth_error", "Unauthorized: Customer ID not found")
 	}
-	span.SetAttributes(attribute.Int64("customer.id", int64(customerID)))
+	span.SetAttributes(attribute.Int64("customer.id", int64(claims.UserID)))
 
-	limits, err := h.profileService.GetMyLimits(c.Context(), customerID)
+	limits, err := h.profileService.GetMyLimits(c.Context(), claims.UserID)
 	if err != nil {
 		return h.recordError(ctx, span, c, start, err, fiber.StatusInternalServerError, "service_error", "Failed to get limits")
 	}
@@ -371,10 +372,11 @@ func (h *ProfileHandler) GetMyTransactions(c *fiber.Ctx) error {
 	h.log.Debug("Received get my transactions request", zap.String("path", c.Path()))
 	h.requestCount.Add(ctx, 1, metric.WithAttributes(attribute.String("endpoint", c.Path()), attribute.String("method", c.Method())))
 
-	customerID, err := getCustomerIDFromLocals(c)
+	claims, err := middleware.GetClaimsFromLocals(c)
 	if err != nil {
 		return h.recordError(ctx, span, c, start, err, fiber.StatusUnauthorized, "auth_error", "Unauthorized: Customer ID not found")
 	}
+	span.SetAttributes(attribute.Int64("customer.id", int64(claims.UserID)))
 
 	params := domain.Params{
 		Status: c.Query("status"),
@@ -383,26 +385,16 @@ func (h *ProfileHandler) GetMyTransactions(c *fiber.Ctx) error {
 	}
 
 	span.SetAttributes(
-		attribute.Int64("customer.id", int64(customerID)),
+		attribute.Int64("customer.id", int64(claims.UserID)),
 		attribute.String("query.status", params.Status),
 		attribute.Int("query.page", params.Page),
 		attribute.Int("query.limit", params.Limit),
 	)
 
-	response, err := h.profileService.GetMyTransactions(c.Context(), customerID, params)
+	response, err := h.profileService.GetMyTransactions(c.Context(), claims.UserID, params)
 	if err != nil {
 		return h.recordError(ctx, span, c, start, err, fiber.StatusInternalServerError, "service_error", "Failed to get transactions")
 	}
 
 	return h.recordSuccess(ctx, span, c, start, fiber.StatusOK, response)
-}
-
-// getCustomerIDFromLocals adalah helper untuk mengambil ID customer dari context Fiber
-func getCustomerIDFromLocals(c *fiber.Ctx) (uint64, error) {
-	idVal := c.Locals("customerID")
-	id, ok := idVal.(uint64)
-	if !ok {
-		return 0, errors.New("customerID not found or invalid in context")
-	}
-	return id, nil
 }

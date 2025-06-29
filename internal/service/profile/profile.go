@@ -13,6 +13,7 @@ import (
 	"github.com/fazamuttaqien/multifinance/internal/repository"
 	"github.com/fazamuttaqien/multifinance/internal/service"
 	"github.com/fazamuttaqien/multifinance/pkg/common"
+	"github.com/fazamuttaqien/multifinance/pkg/password"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -128,20 +129,14 @@ func (p *profileService) Create(ctx context.Context, customer *domain.Customer) 
 		return nil, err
 	}
 
-	// 4. Buat entitas customer baru
-	// newCustomer := domain.Customer{
-	// 	NIK:                customer.NIK,
-	// 	FullName:           customer.FullName,
-	// 	LegalName:          customer.LegalName,
-	// 	BirthPlace:         customer.BirthPlace,
-	// 	BirthDate:          customer.BirthDate,
-	// 	Salary:             customer.Salary,
-	// 	KtpUrl:             customer.KtpUrl,
-	// 	SelfieUrl:          customer.SelfieUrl,
-	// 	VerificationStatus: domain.VerificationPending,
-	// }
-
 	customer.VerificationStatus = domain.VerificationPending
+
+	hashPassword, err := password.HashPassword(customer.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	customer.Password = hashPassword
 
 	// 5. Simpan ke database
 	data, err := p.customerRepository.CreateCustomer(ctx, customer)

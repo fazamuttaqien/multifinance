@@ -15,9 +15,10 @@ import (
 	"github.com/gofiber/contrib/otelfiber/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/csrf"
 	"github.com/gofiber/fiber/v2/middleware/helmet"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/fiber/v2/middleware/session"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -29,9 +30,11 @@ func NewRouter(
 	tel *telemetry.OpenTelemetry,
 	cfg *config.Config,
 	limiter *ratelimiter.RateLimiter,
+	store *session.Store,
 ) *fiber.App {
 
 	jwtAuth := middleware.NewJWTAuthMiddleware(cfg.JWT_SECRET_KEY)
+	customCSRF := middleware.NewCustomCSRFMiddleware(store)
 	requireAdmin := middleware.RequireRole(domain.AdminRole)
 	requireCustomer := middleware.RequireRole(domain.CustomerRole)
 	requirePartner := middleware.RequireRole(domain.PartnerRole)
@@ -50,9 +53,15 @@ func NewRouter(
 	app.Use(helmet.New())
 	// 3. CORS
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "http://localhost:3000",
+		AllowOrigins: "http://localhost:5000",
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization, X-User-Id, X-User-Email, X-User-Name",
 		AllowMethods: "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+	}))
+
+	// (Opsional, karena punya Zap)
+	app.Use(logger.New(logger.Config{
+		Format:     "[${time}] ${ip} ${status} - ${latency} ${method} ${path}\n",
+		TimeFormat: "2006-01-02 15:04:05",
 	}))
 
 	app.Use(otelfiber.Middleware(
@@ -60,21 +69,12 @@ func NewRouter(
 		otelfiber.WithPropagators(otel.GetTextMapPropagator()),
 	))
 
-	if cfg.REQUESTS_METRIC {
+	if !cfg.REQUESTS_METRIC {
 		zap.L().Info("Enabling HTTP request metrics middleware")
 		app.Use(middleware.NewOtelMiddleware())
 	} else {
 		zap.L().Info("HTTP request metrics middleware is disabled")
 	}
-
-	csrfProtection := csrf.New(csrf.Config{
-		KeyLookup:      "header:X-CSRF-Token",
-		CookieName:     "csrf_",
-		CookieSameSite: "Strict",
-		CookieHTTPOnly: false,
-		CookieSecure:   false,
-		// CookieSecure:   true,  // for production
-	})
 
 	app.Get("/health", func(c *fiber.Ctx) error {
 		if err := mysqldb.Ping(db, c.Context()); err != nil {
@@ -97,19 +97,41 @@ func NewRouter(
 
 	api.Use(limiter.RateLimitMiddleware())
 
-	api.Post("/register", csrfProtection, presenter.ProfilePresenter.Register)
-	api.Post("/login", csrfProtection, presenter.PrivatePresenter.Login)
-	api.Post("/logout", jwtAuth, csrfProtection, presenter.PrivatePresenter.Logout)
+	authAPI := api.Group("/auth")
+	{
+		authAPI.Post("/register", customCSRF, presenter.ProfilePresenter.Register)
+		authAPI.Post("/login", presenter.PrivatePresenter.Login)
+		authAPI.Post("/logout", jwtAuth, customCSRF, presenter.PrivatePresenter.Logout)
+		authAPI.Get("/csrf-token", func(c *fiber.Ctx) error {
+			sess, err := store.Get(c)
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Session error"})
+			}
 
-	customersAPI := api.Group("/customers", jwtAuth, requireCustomer)
+			token := sess.Get("csrf_token")
+			if token == nil {
+				newToken, err := middleware.GenerateCSRFToken()
+				if err != nil {
+					return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate CSRF token"})
+				}
+				sess.Set("csrf_token", newToken)
+				sess.Save()
+				token = newToken
+			}
+			return c.JSON(fiber.Map{"csrf_token": token})
+		})
+	}
+
+	customersAPI := api.Group("/me", jwtAuth, requireCustomer)
 	{
 		customersAPI.Get("/profile", presenter.ProfilePresenter.GetMyProfile)
-		customersAPI.Put("/profile", csrfProtection, presenter.ProfilePresenter.UpdateMyProfile)
+		customersAPI.Put("/profile", customCSRF, presenter.ProfilePresenter.UpdateMyProfile)
+		customersAPI.Put("/profile", presenter.ProfilePresenter.UpdateMyProfile)
 		customersAPI.Get("/limits", presenter.ProfilePresenter.GetMyLimits)
 		customersAPI.Get("/transactions", presenter.ProfilePresenter.GetMyTransactions)
 	}
 
-	adminAPI := api.Group("/admin", jwtAuth, csrfProtection, requireAdmin)
+	adminAPI := api.Group("/admin", jwtAuth, customCSRF, requireAdmin)
 
 	adminCustomersAPI := adminAPI.Group("/customers")
 	{
@@ -119,7 +141,7 @@ func NewRouter(
 		adminCustomersAPI.Post("/:customerId/verify", presenter.AdminPresenter.VerifyCustomer)
 	}
 
-	partnerAPI := api.Group("/partners", jwtAuth, csrfProtection, requirePartner)
+	partnerAPI := api.Group("/partners", jwtAuth, customCSRF, requirePartner)
 	{
 		partnerAPI.Post("/transactions", presenter.PartnerPresenter.CreateTransaction)
 		partnerAPI.Post("/check-limit", presenter.PartnerPresenter.CheckLimit)

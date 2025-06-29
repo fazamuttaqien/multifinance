@@ -11,7 +11,7 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./docker-config/mysql-config:/etc/mysql/conf.d
+      - ./docker-config/mysql/:/etc/mysql/conf.d
       # - ./docker-config/init-scripts:/docker-entrypoint-initdb.d
     networks:
       - loan_network
@@ -68,7 +68,7 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-      - ./docker-config/redis-config/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./docker-config/redis/redis.conf:/usr/local/etc/redis/redis.conf
     command: redis-server /usr/local/etc/redis/redis.conf
     environment:
       - REDIS_PASSWORD=dev_password_123

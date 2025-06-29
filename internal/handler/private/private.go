@@ -6,10 +6,12 @@ import (
 
 	"github.com/fazamuttaqien/multifinance/internal/dto"
 	"github.com/fazamuttaqien/multifinance/internal/service"
+	"github.com/fazamuttaqien/multifinance/middleware"
 	"github.com/fazamuttaqien/multifinance/pkg/common"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/session"
 
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -19,6 +21,7 @@ import (
 type PrivateHandler struct {
 	privateService service.PrivateService
 	validate       *validator.Validate
+	store          *session.Store
 
 	meter           metric.Meter
 	tracer          trace.Tracer
@@ -51,12 +54,30 @@ func (h *PrivateHandler) Login(c *fiber.Ctx) error {
 		Name:     "private",
 		Value:    res.Token,
 		Expires:  time.Now().Add(time.Hour * 72),
-		HTTPOnly: true,     // Mencegah akses dari JavaScript (melindungi dari XSS)
-		Secure:   false,    // Hanya kirim cookie melalui HTTPS (untuk production)
-		SameSite: "Strict", // Mencegah cookie dikirim pada cross-site request (melindungi dari CSRF)
+		HTTPOnly: true,
+		Secure:   false,
+		SameSite: "Strict",
 	})
 
-	return c.Status(fiber.StatusOK).JSON(res)
+	csrfToken, err := middleware.GenerateCSRFToken()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate CSRF token"})
+	}
+
+	sess, err := h.store.Get(c)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Session error"})
+	}
+
+	sess.Set("csrf_token", csrfToken)
+	if err := sess.Save(); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save session"})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"message":    "Login successful",
+		"csrf_token": csrfToken,
+	})
 }
 
 func (h *PrivateHandler) Logout(c *fiber.Ctx) error {
@@ -69,11 +90,17 @@ func (h *PrivateHandler) Logout(c *fiber.Ctx) error {
 		SameSite: "Strict",
 	})
 
+	sess, err := h.store.Get(c)
+	if err == nil {
+		sess.Destroy()
+	}
+
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Logout successful"})
 }
 
 func NewPrivateHandler(
 	privateService service.PrivateService,
+	store *session.Store,
 	meter metric.Meter,
 	tracer trace.Tracer,
 	log *zap.Logger,
@@ -117,6 +144,7 @@ func NewPrivateHandler(
 	return &PrivateHandler{
 		privateService:  privateService,
 		validate:        validator.New(validator.WithRequiredStructEnabled()),
+		store:           store,
 		meter:           meter,
 		tracer:          tracer,
 		log:             log,

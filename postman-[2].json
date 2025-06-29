@@ -1,0 +1,475 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    "name": "PT XYZ Multifinance API (Final - Cookie & CSRF)",
+    "description": "Koleksi API lengkap untuk sistem PT XYZ Multifinance. Mengimplementasikan autentikasi JWT berbasis cookie HttpOnly dan proteksi CSRF berbasis sesi (Synchronizer Token Pattern).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Authentication & Setup",
+      "description": "Jalankan request di folder ini secara berurutan untuk setup sesi, mendapatkan token CSRF, dan melakukan login. Ini adalah langkah pertama sebelum mengakses endpoint lain.",
+      "item": [
+        {
+          "name": "1. Get Initial CSRF Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Simpan token CSRF dari response ke variabel koleksi.",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData && jsonData.csrf_token) {",
+                  "    pm.collectionVariables.set(\"csrf_token\", jsonData.csrf_token);",
+                  "    console.log(\"Initial CSRF Token set: \" + jsonData.csrf_token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/csrf-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["csrf-token"]
+            },
+            "description": "Jalankan request ini PERTAMA KALI. Ini akan membuat sesi di server dan mengembalikan token CSRF awal yang diperlukan untuk login atau registrasi. Token akan disimpan secara otomatis di variabel `{{csrf_token}}`."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "cookie": [],
+              "body": "{\n    \"csrf_token\": \"a_very_long_and_random_string_from_server\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "2. Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Setelah login, perbarui token CSRF dengan yang baru dari response.",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData && jsonData.csrf_token) {",
+                  "    pm.collectionVariables.set(\"csrf_token\", jsonData.csrf_token);",
+                  "    console.log(\"CSRF Token updated after login: \" + jsonData.csrf_token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}",
+                "description": "Token ini diambil secara otomatis dari variabel yang diset oleh request sebelumnya."
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"nik\": \"1010010110100101\",\n    \"password\": \"admin123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login untuk mendapatkan cookie JWT. Memerlukan token CSRF di header. Akan mengembalikan token CSRF baru yang akan digunakan untuk request-request selanjutnya."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "cookie": [],
+              "body": "{\n    \"message\": \"Login successful\",\n    \"csrf_token\": \"another_long_and_random_string\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "3. Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Menghapus cookie JWT dan menghancurkan sesi di server."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1. Public APIs",
+      "description": "Endpoint yang dapat diakses tanpa login, namun mungkin memerlukan CSRF token.",
+      "item": [
+        {
+          "name": "Register New Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "nik",
+                  "value": "3275010203040005"
+                },
+                {
+                  "key": "full_name",
+                  "value": "Budi Santoso"
+                },
+                {
+                  "key": "legal_name",
+                  "value": "BUDI SANTOSO"
+                },
+                {
+                  "key": "birth_place",
+                  "value": "Jakarta"
+                },
+                {
+                  "key": "birth_date",
+                  "value": "1995-03-02"
+                },
+                {
+                  "key": "salary",
+                  "value": "7500000"
+                },
+                {
+                  "key": "ktp_photo",
+                  "type": "file"
+                },
+                {
+                  "key": "selfie_photo",
+                  "type": "file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", "register"]
+            },
+            "description": "Mendaftarkan konsumen baru. Pastikan Anda telah menjalankan 'Get Initial CSRF Token' terlebih dahulu."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Admin APIs",
+      "description": "Membutuhkan login sebagai Admin (ID: 1).",
+      "item": [
+        {
+          "name": "List Customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/customers?status=PENDING&page=1&limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "customers"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Mendapatkan daftar konsumen. Request GET tidak memerlukan header CSRF."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Customer Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/customers/2",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "customers", "2"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"VERIFIED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/customers/2/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "customers", "2", "verify"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Set Customer Limits",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"limits\": [\n        {\n            \"tenor_months\": 3,\n            \"limit_amount\": 1500000\n        },\n        {\n            \"tenor_months\": 6,\n            \"limit_amount\": 4000000\n        }\n    ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/customers/2/limits",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "customers", "2", "limits"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Partner APIs",
+      "description": "Membutuhkan login sebagai Partner.",
+      "item": [
+        {
+          "name": "Create Transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_nik\": \"3275010203040005\",\n  \"tenor_months\": 6,\n  \"asset_name\": \"Motor Yamaha NMAX\",\n  \"otr_amount\": 35000000,\n  \"admin_fee\": 750000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/partners/transactions",
+              "host": ["{{baseUrl}}"],
+              "path": ["partners", "transactions"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Check Limit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_nik\": \"3275010203040005\",\n  \"tenor_months\": 6,\n  \"transaction_amount\": 10000000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/partners/check-limit",
+              "host": ["{{baseUrl}}"],
+              "path": ["partners", "check-limit"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Customer (Me) APIs",
+      "description": "Membutuhkan login sebagai Customer biasa (bukan Admin).",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["me", "profile"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"full_name\": \"Budi Santoso Updated Again\",\n    \"salary\": 9000000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/me/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["me", "profile"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Limits",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/limits",
+              "host": ["{{baseUrl}}"],
+              "path": ["me", "limits"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/me/transactions?status=ACTIVE&limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["me", "transactions"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "ACTIVE"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "noauth"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api/v1"
+    },
+    {
+      "key": "csrf_token",
+      "value": "",
+      "description": "Variabel ini dikelola secara otomatis oleh skrip di folder 'Authentication & Setup'."
+    }
+  ]
+}

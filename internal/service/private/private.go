@@ -2,6 +2,7 @@ package privatesrv
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/fazamuttaqien/multifinance/internal/domain"
@@ -42,7 +43,8 @@ func (p *privateService) Login(ctx context.Context, data dto.LoginRequest) (*dto
 	if err != nil {
 		return nil, err
 	}
-	if cust == nil || !password.CheckPasswordHash(cust.Password, data.Password) {
+	log.Println("Hello")
+	if cust == nil || !password.CheckPasswordHash(data.Password, cust.Password) {
 		return nil, common.ErrInvalidCredentials
 	}
 

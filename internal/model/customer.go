@@ -24,6 +24,7 @@ func CustomerToEntity(data Customer) *domain.Customer {
 		ID:                 data.ID,
 		NIK:                data.NIK,
 		FullName:           data.FullName,
+		Password:           data.Password,
 		LegalName:          data.LegalName,
 		BirthPlace:         data.BirthPlace,
 		BirthDate:          data.BirthDate,

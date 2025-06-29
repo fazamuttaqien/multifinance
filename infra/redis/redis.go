@@ -10,19 +10,18 @@ import (
 	"github.com/fazamuttaqien/multifinance/config"
 )
 
-func New(cfg *config.Config) (*redis.Client, error) {
-	client := redis.NewFailoverClient(&redis.FailoverOptions{
-		MasterName:    "mymaster",
-		SentinelAddrs: []string{cfg.REDIS_ADDRESS},
-		Password:      cfg.REDIS_PASSWORD,
-		DB:            0,
-		PoolSize:      10,
-		DialTimeout:   5 * time.Second,
-		ReadTimeout:   3 * time.Second,
-		WriteTimeout:  3 * time.Second,
-		PoolTimeout:   4 * time.Second,
-		MaxRetries:    3,
-		MinIdleConns:  2,
+func NewRedis(cfg *config.Config) (*redis.Client, error) {
+	client := redis.NewClient(&redis.Options{
+		Addr:         cfg.REDIS_ADDRESS,
+		Password:     cfg.REDIS_PASSWORD,
+		DB:           0,
+		PoolSize:     10,
+		DialTimeout:  5 * time.Second,
+		ReadTimeout:  3 * time.Second,
+		WriteTimeout: 3 * time.Second,
+		PoolTimeout:  4 * time.Second,
+		MaxRetries:   3,
+		MinIdleConns: 2,
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -41,13 +40,12 @@ func New(cfg *config.Config) (*redis.Client, error) {
 	return client, nil
 }
 
-// MonitorRedis will try to continue to connect to redis until it works
 func MonitorRedis(cfg *config.Config) *redis.Client {
 	var client *redis.Client
 	var err error
 
 	for {
-		client, err = New(cfg)
+		client, err = NewRedis(cfg)
 		if err != nil {
 			zap.L().Error(
 				"Failed to connect to Redis, retrying in 5 seconds...",
@@ -63,8 +61,6 @@ func MonitorRedis(cfg *config.Config) *redis.Client {
 	return client
 }
 
-// WatchConnectionRedis Monitor connections by ping periodically.
-// if Ping fails, then he will disconnect the existing client and do reconnect.
 func WatchConnectionRedis(client **redis.Client, cfg *config.Config) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
